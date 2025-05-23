@@ -5,7 +5,7 @@
       <!-- Filter by Status -->
       <div class="filter-group">
         <label for="filter-status">Status:</label>
-        <select id="filter-status" v-model="currentFilters.status" @change="emitFilters">
+        <select id="filter-status" v-model="currentFilters.status" @change="emitFilters" :disabled="props.disabled">
           <option value="">All</option>
           <option value="Owned">Owned</option>
           <option value="Wishlist">Wishlist</option>
@@ -16,23 +16,31 @@
       <!-- Filter by Storage Location (Text input for now) -->
       <div class="filter-group">
         <label for="filter-location">Storage Location:</label>
-        <input type="text" id="filter-location" v-model.lazy="currentFilters.storageLocation" @input="emitFiltersThrottled" placeholder="e.g., Shelf A" />
+        <input type="text" id="filter-location" v-model.lazy="currentFilters.storageLocation" @input="emitFiltersThrottled" placeholder="e.g., Shelf A" :disabled="props.disabled" />
       </div>
       
       <!-- Filter by Name (Text input) -->
       <div class="filter-group">
         <label for="filter-name">Name/Set #:</label>
-        <input type="text" id="filter-name" v-model.lazy="currentFilters.name" @input="emitFiltersThrottled" placeholder="e.g., Falcon or 75192" />
+        <input type="text" id="filter-name" v-model.lazy="currentFilters.name" @input="emitFiltersThrottled" placeholder="e.g., Falcon or 75192" :disabled="props.disabled" />
       </div>
 
-      <button @click="resetFilters" class="reset-button">Reset Filters</button>
+      <button @click="resetFilters" class="reset-button" :disabled="props.disabled">Reset Filters</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, defineProps } from 'vue'; // Added defineProps
 import type { LegoSet } from '../stores/legoStore';
+
+// Define props
+const props = defineProps({
+  disabled: {
+    type: Boolean,
+    default: false,
+  },
+});
 
 // Define the structure for filter values
 export interface LegoFilters {

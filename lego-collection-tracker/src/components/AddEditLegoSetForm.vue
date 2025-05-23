@@ -68,9 +68,22 @@
         </div>
       </div>
 
+      <div v-if="localError" class="form-error-message">
+        <p>Error: {{ localError }}</p>
+      </div>
+      <div v-if="isSubmitting" class="form-loading-message">
+        <p>Submitting...</p>
+      </div>
+      <!-- Display global store loading message if not using local isSubmitting for this -->
+      <div v-else-if="legoStore.state.loading && !isSubmitting" class="form-loading-message">
+        <p>Loading...</p>
+      </div>
+
       <div class="form-actions">
-        <button type="submit">{{ editingSet ? 'Update Set' : 'Add Set' }}</button>
-        <button type="button" @click="handleCancel">Cancel</button>
+        <button type="submit" :disabled="isSubmitting || legoStore.state.loading">
+          {{ editingSet ? 'Update Set' : 'Add Set' }}
+        </button>
+        <button type="button" @click="handleCancel" :disabled="isSubmitting || legoStore.state.loading">Cancel</button>
       </div>
     </form>
   </div>
@@ -78,7 +91,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, type PropType } from 'vue';
-import legoStore, { type LegoSet, type CreateLegoSetData, type UpdateLegoSetData } from '../stores/legoStore';
+import legoStore, { type LegoSet, type CreateLegoSetData } from '../stores/legoStore'; // UpdateLegoSetData might be implicitly handled by Partial<LegoSet>
 
 const props = defineProps({
   editingSet: {
@@ -92,11 +105,21 @@ const emit = defineEmits<{
   (e: 'cancel'): void;
 }>();
 
-// Reactive form data structure. Initialize with defaults or editingSet values.
-// Using a function to initialize to ensure reactivity and proper reset.
 const getInitialFormData = (): Omit<LegoSet, 'id'> => {
   if (props.editingSet) {
-    return { ...props.editingSet }; // Spread to make it mutable for the form
+    // Ensure all fields defined in the form are present
+    return { 
+        name: props.editingSet.name,
+        setNumber: props.editingSet.setNumber,
+        description: props.editingSet.description || '',
+        pictures: props.editingSet.pictures || [],
+        numberOfPieces: props.editingSet.numberOfPieces || 0,
+        numberOfMinifigs: props.editingSet.numberOfMinifigs || 0,
+        quantityOwned: props.editingSet.quantityOwned || 1,
+        storageLocation: props.editingSet.storageLocation || '',
+        isBuilt: props.editingSet.isBuilt || false,
+        status: props.editingSet.status || 'Owned',
+    };
   }
   return {
     name: '',
@@ -113,8 +136,9 @@ const getInitialFormData = (): Omit<LegoSet, 'id'> => {
 };
 
 const formData = ref<Omit<LegoSet, 'id'>>(getInitialFormData());
+const localError = ref<string | null>(null);
+const isSubmitting = ref(false); // Local submitting state for form
 
-// Computed property to handle pictures as a comma-separated string
 const picturesString = computed({
   get: () => formData.value.pictures?.join(', ') || '',
   set: (value: string) => {
@@ -122,21 +146,27 @@ const picturesString = computed({
   }
 });
 
-// Watch for changes in the editingSet prop to reset the form if it changes
 watch(() => props.editingSet, (newSet) => {
   formData.value = getInitialFormData();
-}, { immediate: true }); // immediate: true to run on component mount
+  localError.value = null; // Clear local error when form reinitializes
+}, { immediate: true, deep: true });
 
-const handleSubmit = () => {
-  // Basic validation already handled by `required` attributes, but can add more here.
-  if (props.editingSet && props.editingSet.id) {
-    // Update existing set
-    const updateData: UpdateLegoSetData = { ...formData.value };
-    legoStore.updateSet(props.editingSet.id, updateData);
-  } else {
-    // Add new set
-    // Ensure all required fields for CreateLegoSetData are present
-    const createData: CreateLegoSetData = {
+
+const handleSubmit = async () => {
+  localError.value = null;
+  isSubmitting.value = true;
+  legoStore.state.error = null; // Clear global store error before new submission
+
+  try {
+    let success = false;
+    if (props.editingSet && props.editingSet.id) {
+      const result = await legoStore.updateSet(props.editingSet.id, formData.value);
+      if (result) {
+        success = true;
+      }
+    } else {
+      // Ensure all required fields are correctly typed for CreateLegoSetData
+      const createData: CreateLegoSetData = {
         name: formData.value.name,
         setNumber: formData.value.setNumber,
         description: formData.value.description,
@@ -147,22 +177,56 @@ const handleSubmit = () => {
         storageLocation: formData.value.storageLocation,
         isBuilt: formData.value.isBuilt,
         status: formData.value.status,
-    };
-    legoStore.addSet(createData);
+      };
+      const result = await legoStore.addSet(createData);
+      if (result) {
+        success = true;
+      }
+    }
+
+    if (success) {
+      emit('submit-success');
+    } else {
+      // If success is false but no specific error was thrown by store (e.g. store returns null)
+      // Use global error from store if available, or set a generic local one.
+      localError.value = legoStore.state.error || 'Submission failed. Please try again.';
+    }
+  } catch (error: any) { // Catch any unexpected errors from store methods
+    console.error("Form submission error:", error);
+    localError.value = error.message || legoStore.state.error || 'An unexpected error occurred.';
+  } finally {
+    isSubmitting.value = false;
   }
-  emit('submit-success');
-  // Optionally reset form after submission if not automatically closed
-  // formData.value = getInitialFormData(); // Reset only if not closing immediately
 };
 
 const handleCancel = () => {
+  localError.value = null;
   emit('cancel');
-  // formData.value = getInitialFormData(); // Reset form on cancel
 };
 
 </script>
 
 <style scoped>
+.form-error-message {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+.form-loading-message {
+  background-color: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+  padding: 10px 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
 .form-container {
   background-color: #f9f9f9;
   padding: 20px;

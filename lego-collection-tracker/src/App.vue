@@ -3,14 +3,33 @@
     <header>
       <h1>Lego Collection Tracker</h1>
     </header>
+
+    <!-- Global Error Display -->
+    <div v-if="legoStore.state.error" class="global-error-message">
+      <p>Error: {{ legoStore.state.error }} <button @click="clearError">Dismiss</button></p>
+    </div>
+
     <main>
-      <div class="controls-area">
-        <button @click="openAddSetForm" class="add-new-button">Add New Lego Set</button>
-        <FilterControls @filters-changed="applyFilters" />
+      <!-- Global Loading Indicator for Initial Load -->
+      <div v-if="legoStore.state.loading && initialLoadInProgress" class="global-loading-indicator">
+        <p>Loading collection...</p>
       </div>
 
-      <LegoSetList :sets="filteredLegoSets" @edit-set="openEditSetForm" />
+      <div v-show="!initialLoadInProgress"> <!-- Hide controls and list while initial load is happening if desired -->
+        <div class="controls-area" :disabled="legoStore.state.loading">
+          <button @click="openAddSetForm" class="add-new-button" :disabled="legoStore.state.loading">Add New Lego Set</button>
+          <FilterControls @filters-changed="applyFilters" :disabled="legoStore.state.loading" />
+        </div>
 
+        <LegoSetList
+          :sets="filteredLegoSets"
+          :is-loading="legoStore.state.loading && legoStore.state.legoSets.length === 0" 
+          :error-message="legoStore.state.error && legoStore.state.legoSets.length === 0 ? legoStore.state.error : ''"
+          @edit-set="openEditSetForm"
+        />
+      </div>
+
+      <!-- Form Modal -->
       <div v-if="showSetForm" class="modal-overlay" @click.self="closeSetForm">
         <AddEditLegoSetForm
           :editing-set="setBeingEdited"
@@ -96,9 +115,47 @@ const filteredLegoSets = computed(() => {
 // For now, this App.vue assumes LegoSetList is ready for this.
 // Let's proceed with this structure for App.vue and then adjust LegoSetList.vue.
 
+// Computed property to determine if initial load might be in progress
+const initialLoadInProgress = computed(() => {
+  return legoStore.state.loading && legoStore.state.legoSets.length === 0;
+});
+
+const clearError = () => {
+  legoStore.state.error = null; // Simple way to clear error, store could have a dedicated action
+};
+
 </script>
 
 <style>
+.global-error-message {
+  background-color: #f8d7da; /* Light red */
+  color: #721c24; /* Dark red */
+  padding: 10px 20px;
+  text-align: center;
+  border-bottom: 1px solid #f5c6cb;
+}
+.global-error-message button {
+  margin-left: 15px;
+  padding: 3px 8px;
+  background-color: #721c24;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.global-loading-indicator {
+  text-align: center;
+  padding: 30px;
+  font-size: 1.2em;
+  color: #007bff;
+}
+/* Consider disabling interactions on controls if needed */
+.controls-area[disabled] {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
 /* Global styles (or move to main.css/index.css) */
 body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;

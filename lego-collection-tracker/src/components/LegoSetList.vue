@@ -1,63 +1,88 @@
 <template>
   <div class="lego-set-list-container">
-    <h2>My Lego Collection</h2>
-    <div v-if="legoStore.state.legoSets && legoStore.state.legoSets.length > 0" class="lego-set-list">
+    <!-- Title was here, App.vue has a global title, list could have its own sub-title if needed -->
+    <!-- <h2>My Lego Collection</h2> -->
+
+    <div v-if="props.isLoading && props.sets.length === 0" class="loading-message">
+      <p>Loading sets...</p>
+    </div>
+    <div v-else-if="props.errorMessage" class="error-message">
+      <p>Error loading sets: {{ props.errorMessage }}</p>
+      <p>Please try refreshing or check back later.</p>
+    </div>
+    <div v-else-if="props.sets && props.sets.length > 0" class="lego-set-list">
       <LegoSetCard
-        v-for="set in legoStore.state.legoSets"
+        v-for="set in props.sets"
         :key="set.id"
         :set="set"
         @edit-set="handleEditSet"
-        @delete-set="handleDeleteSet"
+        @delete-set="handleDeleteSet" 
       />
     </div>
     <div v-else class="empty-list-message">
-      <p>Your Lego collection is currently empty. Start by adding a new set!</p>
+      <p>No Lego sets match your current filters, or your collection is empty. Try adding some!</p>
     </div>
-    <!-- We'll add a button/modal for adding sets later, likely in App.vue or a dedicated controls component -->
   </div>
 </template>
 
 <script setup lang="ts">
+import { defineProps, defineEmits, type PropType } from 'vue'; // Keep defineEmits
 import LegoSetCard from './LegoSetCard.vue';
-import legoStore from '../stores/legoStore'; // Default export
-import type { LegoSet } from '../stores/legoStore'; // Named export for the type
+import type { LegoSet } from '../stores/legoStore';
+// legoStore import might still be used by handlers if they need to get fresh data after an action,
+// but for display, it relies on props.
+import legoStore from '../stores/legoStore';
 
-// No need to explicitly fetch all sets if legoStore.state.legoSets is directly used in template,
-// as it's already reactive. If we had a getter function like `getAllSets()` that returned a computed
-// or filtered list, we might call it here. For now, direct state access is fine.
 
-const handleEditSet = (setId: number) => {
-  console.log('Attempting to edit set with ID:', setId);
-  // Placeholder for edit functionality
-  // Typically, this would open a modal or navigate to an edit page,
-  // pre-filling a form with the set's data.
-  // For now, we can just log it.
-  const setToEdit = legoStore.getSetById(setId);
-  if (setToEdit) {
-    alert(`Editing: ${setToEdit.name} (ID: ${setToEdit.id}) - Implementation pending.`);
+const props = defineProps({
+  sets: {
+    type: Array as PropType<LegoSet[]>,
+    required: true,
+    default: () => []
+  },
+  isLoading: { // New prop
+    type: Boolean,
+    default: false
+  },
+  errorMessage: { // New prop
+    type: String,
+    default: ''
   }
+});
+
+const emit = defineEmits<{ // Keep existing emits
+  (e: 'edit-set', id: number): void;
+  (e: 'delete-set', id: number): void;
+}>();
+
+// Handlers remain largely the same, re-emitting events.
+const handleEditSet = (setId: number) => {
+  console.log('LegoSetList: Edit event received, re-emitting for App.vue. ID:', setId);
+  emit('edit-set', setId);
 };
 
 const handleDeleteSet = (setId: number) => {
-  console.log('Attempting to delete set with ID:', setId);
-  const setToDelete = legoStore.getSetById(setId); // Get details for confirm message
-  if (setToDelete) {
-    // Confirmation is already in LegoSetCard, but good for a top-level check too if needed.
-    // legoStore.deleteSet(setId) was called by the card if confirm passed.
-    // Here, we might just log or update UI further if necessary.
-    // For now, the card handles the direct deletion via emit.
-    // If the card *only* emitted and didn't call deleteSet, we'd do it here:
-    // if (confirm(`Are you sure you want to delete "${setToDelete.name}" from the list view?`)) {
-    //   legoStore.deleteSet(setId);
-    // }
-    alert(`Set "${setToDelete.name}" (ID: ${setId}) delete action triggered. legoStore.deleteSet was called by LegoSetCard.`);
-  } else {
-    alert(`Set with ID: ${setId} not found for deletion.`);
-  }
+  // LegoSetCard handles the actual deletion. This is more of a notification/re-emit.
+  console.log('LegoSetList: Delete event received, re-emitting for App.vue. ID:', setId);
+  emit('delete-set', setId);
 };
 </script>
 
 <style scoped>
+.loading-message, .error-message {
+  text-align: center;
+  padding: 40px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  margin-top: 20px;
+  font-size: 1.2em;
+  color: #555;
+}
+.error-message {
+  background-color: #ffebee; /* Light pink for errors */
+  color: #c62828; /* Darker red for error text */
+}
+
 .lego-set-list-container {
   padding: 20px;
 }

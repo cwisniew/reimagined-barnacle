@@ -17,14 +17,17 @@
     <!-- Basic actions - will be implemented later -->
     <div class="actions">
       <button @click="editSet">Edit</button>
-      <button @click="deleteSet">Delete</button>
+      <button @click="deleteSet" :disabled="isDeleting">
+        {{ isDeleting ? 'Deleting...' : 'Delete' }}
+      </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, type PropType } from 'vue';
-import type { LegoSet } from '../stores/legoStore'; // Adjust path if necessary
+import { defineProps, defineEmits, type PropType, ref } from 'vue'; // Added ref
+import type { LegoSet } from '../stores/legoStore';
+import legoStore from '../stores/legoStore'; // Import store for delete
 
 // Define the props this component accepts
 const props = defineProps({
@@ -40,18 +43,37 @@ const props = defineProps({
 // Type safety for emitted events can be added like this:
 const emit = defineEmits<{
   (e: 'edit-set', id: number): void;
-  (e: 'delete-set', id: number): void;
+  // Delete event is re-emitted by LegoSetList, but actual deletion is handled here now
+  // (e: 'delete-set', id: number): void; // This might be removed if App.vue doesn't need it directly
 }>();
+
+const isDeleting = ref(false); // Local loading state for delete
 
 function editSet() {
   // props.set should be guaranteed by `required: true`
   emit('edit-set', props.set!.id);
 }
 
-function deleteSet() {
-  // props.set should be guaranteed
-  if (confirm(`Are you sure you want to delete "${props.set!.name}"? This action cannot be undone.`)) {
-    emit('delete-set', props.set!.id);
+async function deleteSet() {
+  if (!props.set || props.set.id === undefined) return; // Guard
+
+  // Confirmation is good, keep it.
+  if (confirm(`Are you sure you want to delete "${props.set.name}"? This action cannot be undone.`)) {
+    isDeleting.value = true;
+    try {
+      const success = await legoStore.deleteSet(props.set.id);
+      if (!success) {
+        // Error message is in legoStore.state.error
+        alert(`Failed to delete set: ${legoStore.state.error || 'Unknown error'}`);
+      }
+      // No need to emit 'delete-set' upwards if card handles deletion directly with store
+      // and list reacts to store changes. If App.vue needs to know for other reasons, it can be emitted.
+    } catch (error: any) {
+      console.error('Error during deleteSet in LegoSetCard:', error);
+      alert(`An error occurred while deleting the set: ${error.message || 'Unknown error'}`);
+    } finally {
+      isDeleting.value = false;
+    }
   }
 }
 </script>
