@@ -19,6 +19,24 @@ const STORAGE_KEY = 'boardGamesData';
 
 const games = ref([]); // Array of game objects
 
+// Example game object structure:
+// {
+//   id: null, // Unique identifier (e.g., number or UUID string)
+//   name: '', // String, Name of the board game
+//   storageLocation: '', // String, Where the game is stored
+//   cards: [ // Array of card objects
+//     {
+//       type: '', // String, Type of card (e.g., "Standard", "Mini", "Tarot")
+//       count: 0, // Number, How many cards of this type
+//       sleeved: false // Boolean, Are these cards sleeved?
+//     }
+//   ],
+//   manualLink: '', // String, URL to the game's manual (optional)
+//   expansions: [], // Array of strings, names of expansions owned (optional)
+//   bggId: null, // String or Number, from BoardGameGeek
+//   bggYearPublished: null // String or Number, from BoardGameGeek
+// }
+
 // Load games from local storage when the component is mounted
 onMounted(() => {
   const storedGames = localStorage.getItem(STORAGE_KEY);

@@ -2,6 +2,20 @@
   <form @submit.prevent="handleSubmit" class="board-game-form">
     <h3>Add New Board Game</h3>
 
+    <fieldset class="form-section">
+      <legend>BoardGameGeek Integration</legend>
+      <BggSearch @bgg-game-selected="handleBggGameSelected" />
+
+      <div v-if="formData.bggId" class="form-group readonly-bgg-info">
+        <label>BGG ID:</label>
+        <span>{{ formData.bggId }}</span>
+      </div>
+      <div v-if="formData.bggYearPublished && formData.bggYearPublished !== 'N/A'" class="form-group readonly-bgg-info">
+        <label>Year Published (BGG):</label>
+        <span>{{ formData.bggYearPublished }}</span>
+      </div>
+    </fieldset>
+
     <div class="form-group">
       <label for="name">Name:</label>
       <input type="text" id="name" v-model="formData.name" required />
@@ -57,6 +71,7 @@
 
 <script setup>
 import { ref } from 'vue';
+import BggSearch from './BggSearch.vue'; // Import BggSearch component
 
 const emit = defineEmits(['add-game']);
 
@@ -65,10 +80,19 @@ const getInitialFormData = () => ({
   storageLocation: '',
   cards: [{ type: '', count: null, sleeved: false }],
   manualLink: '',
-  expansions: []
+  expansions: [],
+  bggId: null, // Added bggId
+  bggYearPublished: null // Added bggYearPublished
 });
 
 const formData = ref(getInitialFormData());
+
+function handleBggGameSelected(selectedGame) {
+  formData.value.bggId = selectedGame.bggId;
+  formData.value.name = selectedGame.name; // Overwrite/pre-fill name
+  formData.value.bggYearPublished = selectedGame.yearPublished;
+  console.log('BGG Game Selected and Form Data Updated:', formData.value);
+}
 
 const addCardEntry = () => {
   formData.value.cards.push({ type: '', count: null, sleeved: false });
@@ -76,7 +100,7 @@ const addCardEntry = () => {
 
 const removeCardEntry = (index) => {
   formData.value.cards.splice(index, 1);
-  if (formData.value.cards.length === 0) { // Optionally ensure there's always one card entry
+  if (formData.value.cards.length === 0) {
     addCardEntry();
   }
 };
@@ -93,11 +117,12 @@ const handleSubmit = () => {
   const newGame = {
     id: Date.now(),
     ...formData.value,
+    // Ensure cards and expansions are deep copied if necessary
     cards: formData.value.cards.map(card => ({...card})),
     expansions: [...formData.value.expansions]
   };
   emit('add-game', newGame);
-  formData.value = getInitialFormData();
+  formData.value = getInitialFormData(); // Reset form
 };
 </script>
 
@@ -106,9 +131,8 @@ const handleSubmit = () => {
   background-color: #fff;
   padding: 25px;
   border-radius: 8px;
-  /* box-shadow: 0 2px 10px rgba(0,0,0,0.05); */ /* Shadow inherited from #app now */
-  margin: 20px auto; /* Centered, with space */
-  border: 1px solid #e0e0e0; /* Softer border */
+  margin: 20px auto;
+  border: 1px solid #e0e0e0;
 }
 
 .board-game-form h3 {
@@ -122,27 +146,27 @@ const handleSubmit = () => {
   margin-bottom: 1rem;
 }
 
-.form-group label, .form-fieldset legend {
+.form-group label, .form-fieldset legend, .form-section legend { /* Added .form-section legend */
   display: block;
   margin-bottom: 0.5rem;
   color: #333;
-  font-weight: 500; /* Slightly bolder labels */
+  font-weight: 500;
   font-size: 0.95em;
 }
 
-.form-fieldset legend {
-  font-size: 1.1em; /* Larger legend for fieldsets */
+.form-fieldset legend, .form-section legend { /* Added .form-section legend */
+  font-size: 1.1em;
   padding-bottom: 5px;
   border-bottom: 1px solid #eee;
-  margin-bottom: 1rem; /* Space below legend */
-  width: 100%; /* Make legend span full width */
+  margin-bottom: 1rem;
+  width: 100%;
 }
 
 .board-game-form input[type="text"],
 .board-game-form input[type="url"],
 .board-game-form input[type="number"] {
   width: 100%;
-  padding: 0.6rem 0.8rem; /* Adjusted padding */
+  padding: 0.6rem 0.8rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1em;
@@ -151,17 +175,52 @@ const handleSubmit = () => {
 .board-game-form input[type="text"]:focus,
 .board-game-form input[type="url"]:focus,
 .board-game-form input[type="number"]:focus {
-  border-color: #42b983; /* Vue green focus */
+  border-color: #42b983;
   outline: none;
   box-shadow: 0 0 0 2px rgba(66, 185, 131, 0.2);
 }
 
-
-.form-fieldset {
-  border: none; /* Remove default fieldset border */
+.form-fieldset, .form-section { /* Added .form-section */
+  border: none;
   padding: 0;
-  margin-bottom: 1.5rem; /* Space between fieldsets */
+  margin-bottom: 1.5rem;
 }
+
+/* Styles for BGG Integration Section */
+.form-section { /* This is the new fieldset class for BGG */
+  border: 1px solid #ddd; /* Distinct border for this section */
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  border-radius: 4px;
+  background-color: #fdfdfd; /* Slightly different background */
+}
+.form-section legend {
+  font-weight: bold; /* Already covered, but can be more specific */
+  padding: 0 0.5rem; /* Padding around legend text */
+  color: #333;
+  border-bottom: none; /* BGG section legend doesn't need a full border-bottom */
+  margin-bottom: 0.75rem; /* Space after legend */
+  width: auto; /* Fit content for legend */
+}
+.readonly-bgg-info {
+  margin-top: 1rem; /* Space above BGG info */
+  padding: 0.75rem;
+  background-color: #e9ecef; /* Light grey background */
+  border-radius: 4px;
+  font-size: 0.9em;
+  display: flex; /* Align label and span */
+  gap: 0.5rem; /* Space between label and value */
+  border: 1px solid #ced4da;
+}
+.readonly-bgg-info label {
+  font-weight: bold;
+  margin-bottom: 0; /* Override default label margin */
+  color: #495057;
+}
+.readonly-bgg-info span {
+  color: #212529;
+}
+
 
 .dynamic-entry {
   background-color: #f9f9f9;
@@ -173,13 +232,13 @@ const handleSubmit = () => {
 
 .form-row {
   display: flex;
-  gap: 1rem; /* Spacing between inline form groups */
-  align-items: flex-end; /* Align items to bottom for varied input heights */
-  margin-bottom: 0.75rem; /* Space before remove button */
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 0.75rem;
 }
 
 .form-group-inline {
-  flex: 1; /* Allow inline groups to grow */
+  flex: 1;
 }
 .form-group-inline label {
   font-weight: normal;
@@ -189,32 +248,30 @@ const handleSubmit = () => {
 .form-group-checkbox {
   display: flex;
   align-items: center;
-  padding-bottom: 0.5rem; /* Align with input baseline */
+  padding-bottom: 0.5rem;
 }
 
 .form-group-checkbox input[type="checkbox"] {
   margin-right: 0.5rem;
-  width: auto; /* Override default width for checkbox */
-  accent-color: #42b983; /* Vue green for checkbox */
+  width: auto;
+  accent-color: #42b983;
 }
 .form-group-checkbox label {
   font-weight: normal;
-  margin-bottom: 0; /* No bottom margin for checkbox label */
+  margin-bottom: 0;
 }
 
-.form-group-expansion { /* Specific styling for expansion input row */
+.form-group-expansion {
   display: flex;
-  align-items: center; /* Vertically center label and input */
+  align-items: center;
   gap: 0.5rem;
 }
 .form-group-expansion label {
-  flex-basis: 80px; /* Fixed width for "Name:" label */
+  flex-basis: 80px;
   flex-shrink: 0;
   text-align: right;
 }
 
-
-/* Buttons */
 .btn {
   padding: 0.6rem 1rem;
   border: none;
@@ -226,20 +283,20 @@ const handleSubmit = () => {
 }
 
 .btn-add {
-  background-color: #5cb85c; /* Green for add */
+  background-color: #5cb85c;
   color: white;
-  display: block; /* Make add buttons block level */
-  margin-top: 0.5rem; /* Space above add button */
-  width: fit-content; /* Fit content width */
+  display: block;
+  margin-top: 0.5rem;
+  width: fit-content;
 }
 .btn-add:hover {
   background-color: #4cae4c;
 }
 
 .btn-remove {
-  background-color: #d9534f; /* Red for remove */
+  background-color: #d9534f;
   color: white;
-  font-size: 0.85em; /* Smaller remove button */
+  font-size: 0.85em;
   padding: 0.4rem 0.8rem;
 }
 .btn-remove:hover {
@@ -247,23 +304,21 @@ const handleSubmit = () => {
 }
 
 .dynamic-entry .btn-remove {
-  display: block; /* Make remove button block */
-  margin-left: auto; /* Push to the right */
+  display: block;
+  margin-left: auto;
   width: fit-content;
 }
 
-
 .btn-submit {
-  background-color: #42b983; /* Vue green for primary action */
+  background-color: #42b983;
   color: white;
   font-size: 1.1em;
   padding: 0.8rem 1.5rem;
   display: block;
-  margin: 1.5rem auto 0; /* Centered with space above */
+  margin: 1.5rem auto 0;
   width: fit-content;
 }
 .btn-submit:hover {
   background-color: #36a272;
 }
-
 </style>
