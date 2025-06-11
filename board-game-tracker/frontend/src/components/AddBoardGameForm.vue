@@ -17,6 +17,22 @@
       </select>
     </div>
 
+    <!-- Card Sleeve Inventory Section -->
+    <div class="card-sleeve-section section-box">
+      <h4>Card Sleeve Inventory</h4>
+      <div v-for="(cardSet, index) in form.cardSets" :key="cardSet.id" class="card-set-item">
+        <h5>Set {{ index + 1 }} <button type="button" @click="removeCardSet(index)" class="remove-set-btn">Remove Set</button></h5>
+        <div class="grid-2-col">
+          <div><label :for="`cs-cat-${index}`">Category Name:</label><input :id="`cs-cat-${index}`" type="text" v-model="cardSet.categoryName" placeholder="e.g., Event Cards" required /></div>
+          <div><label :for="`cs-size-${index}`">Card Size:</label><input :id="`cs-size-${index}`" type="text" v-model="cardSet.cardSize" placeholder="e.g., Standard, 63x88mm" /></div>
+          <div><label :for="`cs-count-${index}`">Total Cards in Set:</label><input :id="`cs-count-${index}`" type="number" v-model.number="cardSet.cardCount" placeholder="0" required min="0" /></div>
+          <div><label :for="`cs-sleeved-${index}`">Cards Sleeved:</label><input :id="`cs-sleeved-${index}`" type="number" v-model.number="cardSet.sleevedCount" placeholder="0" min="0" /></div>
+        </div>
+        <div><label :for="`cs-notes-${index}`">Sleeve Notes (brand, type, etc.):</label><textarea :id="`cs-notes-${index}`" v-model="cardSet.sleeveNotes" rows="2"></textarea></div>
+      </div>
+      <button type="button" @click="addCardSet" class="add-set-btn">Add Card Set</button>
+    </div>
+
     <!-- Web Links Section -->
     <div class="links-section section-box">
       <h4>Web Links & Manual</h4>
@@ -98,9 +114,10 @@
 
 <script setup lang="ts">
 import { ref, watch, reactive, computed } from "vue";
+import { v4 as uuidv4 } from "uuid"; // Import UUID
 import { useBoardGameStore } from "../stores/boardGameStore";
 import { useBggFormStore } from "../stores/bggFormStore";
-import type { BoardGame, OtherLink } from "../types";
+import type { BoardGame, OtherLink, CardSet } from "../types"; // Import CardSet
 
 interface FormExpansionTempData { isExpansionFromBgg?: boolean; bggBaseGameIdFromBgg?: number; }
 interface StringArrayFields {
@@ -119,6 +136,7 @@ const initialFormState = (): Omit<BoardGame, "id"|"playCount"|"lastPlayedDate"> 
   locationRoom:"", locationCupboard:"", locationShelf:"", locationNotes:"",
   officialWebsiteUrl:"", otherLinks:[], crowdfundingPlatform:"", crowdfundingUrl:"", crowdfundingStatus:"",
   bggSubdomains: [], bggFamilies: [], manualUrl: "",
+  cardSets: [],
   isExpansionFromBgg:false, bggBaseGameIdFromBgg:undefined,
   designersString:"", publishersString:"", categoriesString:"", mechanicsString:"",
   bggSubdomainsString: "", bggFamiliesString: "",
@@ -130,10 +148,9 @@ const arrayToString = (arr?:string[])=>arr?.join(", ")||"";
 const stringToArray=(s?:string)=>s?s.split(",").map(i=>i.trim()).filter(i=>i):[];
 
 watch(()=>bggFormStore.bggGameDataForForm,(newData)=>{ if(newData){
-  form.name=newData.name||""; form.description=newData.description||"";
+  form.name=newData.name||""; form.description = newData.description || "";
   form.version=newData.yearPublished?.toString()||""; form.bggId=newData.bggId;
   form.officialWebsiteUrl=newData.officialWebsiteFromBgg||"";
-  // Manual URL is not typically auto-filled from BGG data
   form.bggRating=newData.bggRating;form.bggComplexity=newData.bggComplexity;form.yearPublished=newData.yearPublished;
   form.minPlayers=newData.minPlayers;form.maxPlayers=newData.maxPlayers;form.playingTime=newData.playingTime;
   form.thumbnailUrl=newData.thumbnailUrl||"";form.imageUrl=newData.imageUrl||"";
@@ -142,11 +159,29 @@ watch(()=>bggFormStore.bggGameDataForForm,(newData)=>{ if(newData){
   form.categoriesString=arrayToString(newData.categoriesFromBgg);form.mechanicsString=arrayToString(newData.mechanicsFromBgg);
   form.bggSubdomainsString=arrayToString(newData.bggSubdomainsFromBgg);form.bggFamiliesString=arrayToString(newData.bggFamiliesFromBgg);
   form.isExpansionFromBgg=newData.isExpansionFromBgg;form.bggBaseGameIdFromBgg=newData.bggBaseGameIdFromBgg;
-  populatedBggId.value=newData.bggId; bggFormStore.clearBggGameData();
+  populatedBggId.value=newData.bggId;
+  // cardSets and manualUrl are not typically populated from BGG data by bggFormStore
+  bggFormStore.clearBggGameData();
 }},{deep:true});
 
 const addOtherLink=()=>{if(!form.otherLinks)form.otherLinks=[];form.otherLinks.push({title:"",url:""})};
 const removeOtherLink=(idx:number)=>{form.otherLinks?.splice(idx,1)};
+
+const addCardSet = () => {
+  if (!form.cardSets) form.cardSets = [];
+  form.cardSets.push({
+    id: uuidv4(),
+    categoryName: "",
+    cardCount: 0,
+    cardSize: "",
+    sleevedCount: 0,
+    sleeveNotes: ""
+  });
+};
+const removeCardSet = (index: number) => {
+  form.cardSets?.splice(index, 1);
+};
+
 const clearBggLink=()=>{populatedBggId.value=undefined;form.bggId=undefined;form.isExpansionFromBgg=false;form.bggBaseGameIdFromBgg=undefined;};
 const handleSubmit=async()=>{formError.value=null;if(!form.name.trim()){formError.value="Name required.";return}
   boardGameStore.error=null; const gameData:Partial<BoardGame>={...form};
@@ -159,21 +194,27 @@ const handleSubmit=async()=>{formError.value=null;if(!form.name.trim()){formErro
   delete (gameData as any).bggSubdomainsString; delete (gameData as any).bggFamiliesString;
   if(!form.isExpansion){gameData.baseGameAppId=undefined;gameData.bggBaseGameId=undefined}
   gameData.otherLinks = gameData.otherLinks?.filter(link => link.url.trim() !== "") || [];
+  gameData.cardSets = form.cardSets?.filter(cs => cs.categoryName.trim() && cs.cardCount > 0) || [];
+
   await boardGameStore.addGame(gameData as Omit<BoardGame,"id">);
   if(boardGameStore.error){formError.value=boardGameStore.error}else{Object.assign(form,initialFormState());populatedBggId.value=undefined}
 };
 </script>
 <style scoped>
 .add-game-form{padding:15px;border:1px solid #ccc;border-radius:5px;background-color:#f9f9f9;margin-bottom:20px}
-.add-game-form > div:not(.grid-2-col):not(.section-box){margin-bottom:10px}
-label{display:block;margin-bottom:5px;font-weight:700}
-input[type=text],input[type=number],input[type=url],textarea,select{width:100%;padding:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:3px}
 .section-box{border:1px solid #add8e6;padding:10px;margin-bottom:15px;border-radius:4px;background-color:#f7fcff}
 .section-box h4{margin-top:0;margin-bottom:10px;color:#0056b3;border-bottom:1px solid #add8e6;padding-bottom:5px}
 .section-box > div{margin-bottom:10px}
+label{display:block;margin-bottom:5px;font-weight:700}
+input,textarea,select{width:100%;padding:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:3px}
+.grid-2-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
+button[type=submit]{padding:10px 15px;background-color:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-top:15px}
+.card-set-item { border: 1px solid #cce5ff; padding: 10px; margin-bottom: 10px; border-radius: 3px; background-color: #fff; }
+.card-set-item h5 { margin-top: 0; margin-bottom: 10px; display:flex; justify-content: space-between; align-items: center; }
+.remove-set-btn, .add-set-btn { padding: 5px 10px; font-size: 0.9em; border-radius: 3px; cursor: pointer; border: none; color: white; }
+.remove-set-btn { background-color: #e74c3c; }
+.add-set-btn { background-color: #3498db; margin-top: 5px; }
 .other-link-item{display:flex;gap:10px;margin-bottom:5px;align-items:center}
 .link-title-input{flex-grow:1} .link-url-input{flex-grow:2}
-.remove-link-btn,.add-link-btn{padding:6px 10px;font-size:.9em;border-radius:3px;cursor:pointer;border:none;color:#fff}
 .remove-link-btn{background-color:#dc3545} .add-link-btn{background-color:#28a745}
-button[type=submit]{padding:10px 15px;background-color:#007bff;color:#fff;border:none;border-radius:3px;cursor:pointer;margin-top:15px}
 </style>

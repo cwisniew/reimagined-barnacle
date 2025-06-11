@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
-import { BoardGame, OtherLink } from "./types";
+import { BoardGame, OtherLink, CardSet, PlaySession } from "./types"; // Added PlaySession
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
@@ -16,19 +16,14 @@ let boardGames: BoardGame[] = [];
 const loadGames = () => {
   try { if (fs.existsSync(DATA_FILE)) { const d = fs.readFileSync(DATA_FILE, "utf-8"); if(d){ const p = JSON.parse(d); boardGames = Array.isArray(p)?p:[];
     boardGames.forEach(g=>{
-      if(g.playCount===undefined)g.playCount=0;
-      if(g.isExpansion===undefined)g.isExpansion=false;
-      if(g.bggExpansionIds===undefined)g.bggExpansionIds=[];
-      if(g.designers===undefined)g.designers=[];
-      if(g.publishers===undefined)g.publishers=[];
-      if(g.categories===undefined)g.categories=[];
-      if(g.mechanics===undefined)g.mechanics=[];
-      if(g.otherLinks===undefined)g.otherLinks=[];
-      if(g.bggSubdomains===undefined)g.bggSubdomains=[];
-      if(g.bggFamilies===undefined)g.bggFamilies=[];
-      // manualUrl is optional, so no specific default needed during load if not present
-    });
-    console.log("Board games loaded from", DATA_FILE); } else { boardGames=[]; console.log(DATA_FILE, "is empty."); }} else { boardGames=[]; console.log(DATA_FILE, "not found.");}
+      delete (g as any).playCount;
+      delete (g as any).lastPlayedDate;
+      if(g.plays===undefined) g.plays=[];
+      if(g.isExpansion===undefined)g.isExpansion=false; if(g.bggExpansionIds===undefined)g.bggExpansionIds=[];
+      if(g.designers===undefined)g.designers=[]; if(g.publishers===undefined)g.publishers=[]; if(g.categories===undefined)g.categories=[]; if(g.mechanics===undefined)g.mechanics=[];
+      if(g.otherLinks===undefined)g.otherLinks=[]; if(g.bggSubdomains===undefined)g.bggSubdomains=[]; if(g.bggFamilies===undefined)g.bggFamilies=[];
+      if(g.cardSets===undefined)g.cardSets=[];
+    }); console.log("Board games loaded from", DATA_FILE); } else { boardGames=[]; console.log(DATA_FILE, "is empty.");}} else { boardGames=[]; console.log(DATA_FILE, "not found.");}
   } catch(e){console.error("Error loading games:",e);boardGames=[];}
 };
 const saveGames = async () => { try{const d=path.dirname(DATA_FILE);if(!fs.existsSync(d))fs.mkdirSync(d,{recursive:true});await fs.promises.writeFile(DATA_FILE,JSON.stringify(boardGames,null,2),"utf-8"); console.log("Board games saved to", DATA_FILE);}catch(e){console.error("Error saving games:",e);}};
@@ -36,32 +31,73 @@ loadGames();
 
 app.get("/api/boardgames", (req,res)=>res.json(boardGames));
 app.post("/api/boardgames", async (req: Request, res: Response) => {
-  const { /* existing fields ... */
+  const {
     name, description, version, bggId, status, bggRating, bggComplexity, yearPublished,
-    minPlayers, maxPlayers, playingTime, thumbnailUrl, imageUrl, playCount, isExpansion,
-    baseGameAppId, bggBaseGameId, bggExpansionIds, designers, publishers, categories, mechanics,
+    minPlayers, maxPlayers, playingTime, thumbnailUrl, imageUrl,
+    isExpansion, baseGameAppId, bggBaseGameId, bggExpansionIds, designers, publishers, categories, mechanics,
     locationRoom, locationCupboard, locationShelf, locationNotes, officialWebsiteUrl, otherLinks,
-    crowdfundingPlatform, crowdfundingUrl, crowdfundingStatus, bggSubdomains, bggFamilies,
-    // New manual URL field
-    manualUrl
+    crowdfundingPlatform, crowdfundingUrl, crowdfundingStatus, bggSubdomains, bggFamilies, manualUrl, cardSets,
+    plays
   } = req.body as Partial<BoardGame>;
 
   if (!name || !description) return res.status(400).json({ message: "Name and description are required" });
   const newGame: BoardGame = {
     id: uuidv4(), name, description, version, bggId, status, bggRating, bggComplexity, yearPublished,
-    minPlayers, maxPlayers, playingTime, thumbnailUrl, imageUrl, playCount: playCount || 0,
+    minPlayers, maxPlayers, playingTime, thumbnailUrl, imageUrl,
+    plays: plays || [],
     isExpansion: isExpansion || false, baseGameAppId, bggBaseGameId,
     bggExpansionIds: bggExpansionIds || [], designers: designers || [], publishers: publishers || [],
     categories: categories || [], mechanics: mechanics || [],
     locationRoom, locationCupboard, locationShelf, locationNotes,
     officialWebsiteUrl, otherLinks: otherLinks || [],
     crowdfundingPlatform, crowdfundingUrl, crowdfundingStatus,
-    bggSubdomains: bggSubdomains || [], bggFamilies: bggFamilies || [],
-    manualUrl, // Add new field
+    bggSubdomains: bggSubdomains || [], bggFamilies: bggFamilies || [], manualUrl,
+    cardSets: cardSets || [],
   };
   boardGames.push(newGame); await saveGames(); res.status(201).json(newGame);
 });
-app.patch("/api/boardgames/:id/played", async (req,res)=>{const gId=req.params.id; const i=boardGames.findIndex(g=>g.id===gId); if(i===-1)return res.status(404).json({message:"Game not found"}); const gm=boardGames[i]; gm.playCount=(gm.playCount||0)+1; gm.lastPlayedDate=new Date().toISOString(); boardGames[i]=gm; await saveGames(); res.json(gm);});
+
+// POST /api/boardgames/:gameId/plays - Add a new play session
+app.post("/api/boardgames/:gameId/plays", async (req: Request, res: Response) => {
+  const { gameId } = req.params;
+  const { date, playerNames, notes } = req.body as Omit<PlaySession, "id">;
+
+  if (!date) return res.status(400).json({ message: "Date is required for a play session." });
+
+  const gameIndex = boardGames.findIndex(g => g.id === gameId);
+  if (gameIndex === -1) return res.status(404).json({ message: "Game not found." });
+
+  const newPlay: PlaySession = {
+    id: uuidv4(),
+    date,
+    playerNames: playerNames || [],
+    notes
+  };
+
+  if (!boardGames[gameIndex].plays) boardGames[gameIndex].plays = [];
+  boardGames[gameIndex].plays!.push(newPlay);
+  boardGames[gameIndex].plays!.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  await saveGames();
+  res.status(201).json(newPlay);
+});
+
+// DELETE /api/boardgames/:gameId/plays/:playId - Delete a play session
+app.delete("/api/boardgames/:gameId/plays/:playId", async (req: Request, res: Response) => {
+  const { gameId, playId } = req.params;
+  const gameIndex = boardGames.findIndex(g => g.id === gameId);
+  if (gameIndex === -1) return res.status(404).json({ message: "Game not found." });
+
+  const game = boardGames[gameIndex];
+  if (!game.plays) return res.status(404).json({ message: "No plays found for this game." });
+
+  const playIndex = game.plays.findIndex(p => p.id === playId);
+  if (playIndex === -1) return res.status(404).json({ message: "Play session not found." });
+
+  game.plays.splice(playIndex, 1);
+  await saveGames();
+  res.status(200).json({ message: "Play session deleted." });
+});
 
 const bggClient = BggClient.Create();
 app.get("/api/bgg/search", async(req,res)=>{const n=req.query.name as string;if(!n)return res.status(400).json({message:"Game name query parameter required"});try{const sr=await bggClient.search.query({query:n,type:"boardgame,boardgameexpansion"});res.json(sr||[]);}catch(e){console.error("Error searching BGG:",e);res.status(500).json({message:"Failed to search BGG"});}});
