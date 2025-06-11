@@ -1,6 +1,6 @@
 import express, { Request, Response } from "express";
 import dotenv from "dotenv";
-import { BoardGame } from "./types";
+import { BoardGame, OtherLink } from "./types";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
@@ -8,115 +8,80 @@ import { BggClient } from "boardgamegeekclient";
 import type { Link } from "boardgamegeekclient/dist/esm/types";
 
 dotenv.config();
-
-const app = express();
-const port = process.env.PORT || 3000;
+const app = express(); const port = process.env.PORT || 3000;
 const DATA_FILE = path.join(__dirname, "..", "data", "boardgames.json");
-
 app.use(express.json());
-
 let boardGames: BoardGame[] = [];
 
-// --- Data Persistence Functions ---
 const loadGames = () => {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const fileData = fs.readFileSync(DATA_FILE, "utf-8");
-      if (fileData) {
-        const parsedData = JSON.parse(fileData);
-        boardGames = Array.isArray(parsedData) ? parsedData : [];
-        boardGames.forEach(game => { // Initialize new fields for existing data
-          if (game.playCount === undefined) game.playCount = 0;
-          if (game.isExpansion === undefined) game.isExpansion = false;
-          if (game.bggExpansionIds === undefined) game.bggExpansionIds = [];
-          if (game.designers === undefined) game.designers = [];
-          if (game.publishers === undefined) game.publishers = [];
-          if (game.categories === undefined) game.categories = [];
-          if (game.mechanics === undefined) game.mechanics = [];
-          // No default init for optional location strings needed, undefined is fine
-        });
-        console.log("Board games loaded from", DATA_FILE);
-      } else { boardGames = []; console.log(DATA_FILE, "is empty."); }
-    } else { boardGames = []; console.log(DATA_FILE, "not found."); }
-  } catch (error) { console.error("Error loading games:", error); boardGames = []; }
+  try { if (fs.existsSync(DATA_FILE)) { const d = fs.readFileSync(DATA_FILE, "utf-8"); if(d){ const p = JSON.parse(d); boardGames = Array.isArray(p)?p:[];
+    boardGames.forEach(g=>{
+      if(g.playCount===undefined)g.playCount=0;
+      if(g.isExpansion===undefined)g.isExpansion=false;
+      if(g.bggExpansionIds===undefined)g.bggExpansionIds=[];
+      if(g.designers===undefined)g.designers=[];
+      if(g.publishers===undefined)g.publishers=[];
+      if(g.categories===undefined)g.categories=[];
+      if(g.mechanics===undefined)g.mechanics=[];
+      if(g.otherLinks===undefined)g.otherLinks=[];
+      if(g.bggSubdomains===undefined)g.bggSubdomains=[];
+      if(g.bggFamilies===undefined)g.bggFamilies=[];
+      // manualUrl is optional, so no specific default needed during load if not present
+    });
+    console.log("Board games loaded from", DATA_FILE); } else { boardGames=[]; console.log(DATA_FILE, "is empty."); }} else { boardGames=[]; console.log(DATA_FILE, "not found.");}
+  } catch(e){console.error("Error loading games:",e);boardGames=[];}
 };
-
-const saveGames = async () => {
-  try { const dataDir = path.dirname(DATA_FILE); if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    await fs.promises.writeFile(DATA_FILE, JSON.stringify(boardGames, null, 2), "utf-8");
-    console.log("Board games saved to", DATA_FILE);
-  } catch (error) { console.error("Error saving games:", error); }
-};
-
+const saveGames = async () => { try{const d=path.dirname(DATA_FILE);if(!fs.existsSync(d))fs.mkdirSync(d,{recursive:true});await fs.promises.writeFile(DATA_FILE,JSON.stringify(boardGames,null,2),"utf-8"); console.log("Board games saved to", DATA_FILE);}catch(e){console.error("Error saving games:",e);}};
 loadGames();
 
-// --- Board Game CRUD API Endpoints ---
-app.get("/api/boardgames", (req: Request, res: Response) => res.json(boardGames));
-
+app.get("/api/boardgames", (req,res)=>res.json(boardGames));
 app.post("/api/boardgames", async (req: Request, res: Response) => {
-  const {
-    name, description, version, bggId, status,
-    bggRating, bggComplexity, yearPublished, minPlayers, maxPlayers,
-    playingTime, thumbnailUrl, imageUrl,
-    isExpansion, baseGameAppId, bggBaseGameId, bggExpansionIds,
-    designers, publishers, categories, mechanics,
-    // New location fields
-    locationRoom, locationCupboard, locationShelf, locationNotes
+  const { /* existing fields ... */
+    name, description, version, bggId, status, bggRating, bggComplexity, yearPublished,
+    minPlayers, maxPlayers, playingTime, thumbnailUrl, imageUrl, playCount, isExpansion,
+    baseGameAppId, bggBaseGameId, bggExpansionIds, designers, publishers, categories, mechanics,
+    locationRoom, locationCupboard, locationShelf, locationNotes, officialWebsiteUrl, otherLinks,
+    crowdfundingPlatform, crowdfundingUrl, crowdfundingStatus, bggSubdomains, bggFamilies,
+    // New manual URL field
+    manualUrl
   } = req.body as Partial<BoardGame>;
 
-  if (!name || !description) {
-    return res.status(400).json({ message: "Name and description are required" });
-  }
-
+  if (!name || !description) return res.status(400).json({ message: "Name and description are required" });
   const newGame: BoardGame = {
-    id: uuidv4(), name, description, version, bggId, status,
-    bggRating, bggComplexity, yearPublished, minPlayers, maxPlayers,
-    playingTime, thumbnailUrl, imageUrl,
-    playCount: 0, isExpansion: isExpansion || false, baseGameAppId,
-    bggBaseGameId, bggExpansionIds: bggExpansionIds || [],
-    designers: designers || [], publishers: publishers || [],
+    id: uuidv4(), name, description, version, bggId, status, bggRating, bggComplexity, yearPublished,
+    minPlayers, maxPlayers, playingTime, thumbnailUrl, imageUrl, playCount: playCount || 0,
+    isExpansion: isExpansion || false, baseGameAppId, bggBaseGameId,
+    bggExpansionIds: bggExpansionIds || [], designers: designers || [], publishers: publishers || [],
     categories: categories || [], mechanics: mechanics || [],
-    // Add new location fields
     locationRoom, locationCupboard, locationShelf, locationNotes,
+    officialWebsiteUrl, otherLinks: otherLinks || [],
+    crowdfundingPlatform, crowdfundingUrl, crowdfundingStatus,
+    bggSubdomains: bggSubdomains || [], bggFamilies: bggFamilies || [],
+    manualUrl, // Add new field
   };
-  boardGames.push(newGame);
-  await saveGames();
-  res.status(201).json(newGame);
+  boardGames.push(newGame); await saveGames(); res.status(201).json(newGame);
 });
+app.patch("/api/boardgames/:id/played", async (req,res)=>{const gId=req.params.id; const i=boardGames.findIndex(g=>g.id===gId); if(i===-1)return res.status(404).json({message:"Game not found"}); const gm=boardGames[i]; gm.playCount=(gm.playCount||0)+1; gm.lastPlayedDate=new Date().toISOString(); boardGames[i]=gm; await saveGames(); res.json(gm);});
 
-app.patch("/api/boardgames/:id/played", async (req: Request, res: Response) => {
-  const gameId = req.params.id; const gameIndex = boardGames.findIndex(g => g.id === gameId);
-  if (gameIndex === -1) return res.status(404).json({ message: "Game not found" });
-  const game = boardGames[gameIndex]; game.playCount = (game.playCount || 0) + 1;
-  game.lastPlayedDate = new Date().toISOString(); boardGames[gameIndex] = game;
-  await saveGames(); res.json(game);
-});
-
-// --- BGG API Integration Endpoints --- (Remain the same for this step)
 const bggClient = BggClient.Create();
-app.get("/api/bgg/search", async (req: Request, res: Response) => {
-  const gameName = req.query.name as string; if (!gameName) return res.status(400).json({ message: "Game name query parameter required" });
-  try { const searchResults = await bggClient.search.query({ query: gameName, type: "boardgame,boardgameexpansion" }); res.json(searchResults || []);
-  } catch (error) { console.error("Error searching BGG:", error); res.status(500).json({ message: "Failed to search BGG" }); }
-});
-app.get("/api/bgg/game/:bggId", async (req: Request, res: Response) => {
-  const bggIdNum = parseInt(req.params.bggId, 10); if (isNaN(bggIdNum)) return res.status(400).json({ message: "Valid BGG ID required" });
-  try { const thingResult = await bggClient.thing.query({ id: [bggIdNum], stats: 1, versions: 1, videos: 1 });
-    if (!thingResult || thingResult.length === 0) return res.status(404).json({ message: "Game not found on BGG" });
-    const gameDetails = thingResult[0]; let isExpansionFromBgg=false; let bggBaseGameIdFromBgg:number|undefined=undefined;
-    const bggExpansionIdsFromBgg:number[]=[]; const designersFromBgg:string[]=[]; const publishersFromBgg:string[]=[];
-    const categoriesFromBgg:string[]=[]; const mechanicsFromBgg:string[]=[];
-    if(gameDetails.links && Array.isArray(gameDetails.links)){ gameDetails.links.forEach((link:Link)=>{ switch(link.type){
-      case "boardgameexpansion": if(link.inbound==="true"){isExpansionFromBgg=true;bggBaseGameIdFromBgg=link.id;}else{bggExpansionIdsFromBgg.push(link.id);}break;
-      case "boardgamedesigner":designersFromBgg.push(link.value);break; case "boardgamepublisher":publishersFromBgg.push(link.value);break;
-      case "boardgamecategory":categoriesFromBgg.push(link.value);break; case "boardgamemechanic":mechanicsFromBgg.push(link.value);break;
+app.get("/api/bgg/search", async(req,res)=>{const n=req.query.name as string;if(!n)return res.status(400).json({message:"Game name query parameter required"});try{const sr=await bggClient.search.query({query:n,type:"boardgame,boardgameexpansion"});res.json(sr||[]);}catch(e){console.error("Error searching BGG:",e);res.status(500).json({message:"Failed to search BGG"});}});
+app.get("/api/bgg/game/:bggId", async(req,res)=>{
+  const idNum = parseInt(req.params.bggId,10); if(isNaN(idNum)) return res.status(400).json({message:"Valid BGG ID is required"});
+  try{ const tr = await bggClient.thing.query({id:[idNum],stats:1,versions:1,videos:1}); if(!tr||!tr.length) return res.status(404).json({message:"Game not found on BGG"});
+    const gd=tr[0]; let isExp=false,bggBaseId:number|undefined=undefined;
+    const bggExpIds:number[]=[],des:string[]=[],pub:string[]=[],cat:string[]=[],mec:string[]=[];
+    let webUrl:string|undefined=undefined; const subdom:string[]=[],fam:string[]=[];
+    if(typeof gd.website==="object"&&gd.website!==null&&"value"in gd.website)webUrl=(gd.website as {value:string}).value; else if(typeof gd.website==="string")webUrl=gd.website;
+    if(gd.links&&Array.isArray(gd.links)){gd.links.forEach((l:Link)=>{switch(l.type){
+      case"boardgameexpansion":if(l.inbound==="true"){isExp=true;bggBaseId=l.id}else{bggExpIds.push(l.id)}break;
+      case"boardgamedesigner":des.push(l.value);break;case"boardgamepublisher":p.push(l.value);break;
+      case"boardgamecategory":cat.push(l.value);break;case"boardgamemechanic":mec.push(l.value);break;
+      case"boardgamesubdomain":subdom.push(l.value);break;case"boardgamefamily":fam.push(l.value);break;
     }});}
-    const augmentedDetails={...gameDetails, _isExpansionFromBgg:isExpansionFromBgg, _bggBaseGameIdFromBgg:bggBaseGameIdFromBgg,
-      _bggExpansionIdsFromBgg:bggExpansionIdsFromBgg, _designers:designersFromBgg, _publishers:publishersFromBgg,
-      _categories:categoriesFromBgg, _mechanics:mechanicsFromBgg,};
-    res.json(augmentedDetails);
-  } catch (error) { console.error("Error fetching BGG details:", error); res.status(500).json({ message: "Failed to fetch BGG details" }); }
+    const augDetails={...gd,_isExpansionFromBgg:isExp,_bggBaseGameIdFromBgg:bggBaseId,
+      _bggExpansionIdsFromBgg:bggExpIds,_designers:des,_publishers:pub,_categories:cat,_mechanics:mec,
+      _officialWebsiteFromBgg:webUrl,_bggSubdomains:subdom,_bggFamilies:fam};
+    res.json(augDetails);
+  }catch(e){console.error("Error fetching BGG details:",e);res.status(500).json({message:"Failed to fetch BGG details"});}
 });
-
-app.get("/", (req: Request, res: Response) => res.send("Hello from Express backend!"));
-app.listen(port, () => console.log(`Backend server running on http://localhost:${port}`));
+app.get("/",(req,res)=>res.send("Hello from Express backend!")); app.listen(port,()=>console.log(`Backend server running on http://localhost:${port}`));
