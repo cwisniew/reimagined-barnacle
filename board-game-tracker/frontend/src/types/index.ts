@@ -4,7 +4,6 @@ export interface BoardGame {
   description: string;
   version?: string;
 
-  // New fields
   bggId?: number;
   status?: string;
   bggRating?: number;
@@ -17,5 +16,21 @@ export interface BoardGame {
   imageUrl?: string;
 
   playCount?: number;
-  lastPlayedDate?: string; // ISO date string
+  lastPlayedDate?: string;
+
+  isExpansion?: boolean;
+  baseGameAppId?: string;
+  bggBaseGameId?: number;
+  bggExpansionIds?: number[];
+
+  designers?: string[];
+  publishers?: string[];
+  categories?: string[];
+  mechanics?: string[];
+
+  // New location fields
+  locationRoom?: string;
+  locationCupboard?: string;
+  locationShelf?: string;
+  locationNotes?: string;
 }

@@ -1,22 +1,36 @@
 export interface BoardGame {
-  id: string; // Kept from before
-  name: string; // Kept from before
-  description: string; // Kept from before
-  version?: string; // Kept from before - could be year for non-BGG items
+  id: string;
+  name: string;
+  description: string;
+  version?: string;
 
-  // New fields for this step
   bggId?: number;
-  status?: string; // e.g., "Owned", "Wishlist", "Played", "Unopened", "Shrink-wrapped"
-  bggRating?: number; // BGG average rating
-  bggComplexity?: number; // BGG weight/complexity
-  yearPublished?: number; // From BGG, or manual entry
+  status?: string;
+  bggRating?: number;
+  bggComplexity?: number;
+  yearPublished?: number;
   minPlayers?: number;
   maxPlayers?: number;
-  playingTime?: number; // BGG playing time (usually average)
-  thumbnailUrl?: string; // From BGG
-  imageUrl?: string;    // From BGG
+  playingTime?: number;
+  thumbnailUrl?: string;
+  imageUrl?: string;
 
-  // Fields for next step (play tracking), can be added now with optional
   playCount?: number;
-  lastPlayedDate?: string; // ISO date string
+  lastPlayedDate?: string;
+
+  isExpansion?: boolean;
+  baseGameAppId?: string;
+  bggBaseGameId?: number;
+  bggExpansionIds?: number[];
+
+  designers?: string[];
+  publishers?: string[];
+  categories?: string[];
+  mechanics?: string[];
+
+  // New fields for location
+  locationRoom?: string;
+  locationCupboard?: string;
+  locationShelf?: string;
+  locationNotes?: string; // For "where in shelf" or other details
 }

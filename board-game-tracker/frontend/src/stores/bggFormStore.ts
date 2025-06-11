@@ -1,6 +1,5 @@
 import { defineStore } from "pinia";
 
-// This interface should capture all fields we want to potentially auto-fill from BGG
 export interface BggGameDataForForm {
   name?: string;
   description?: string;
@@ -13,52 +12,44 @@ export interface BggGameDataForForm {
   playingTime?: number;
   thumbnailUrl?: string;
   imageUrl?: string;
-  // We can add more fields here if BGG API provides them and we want to use them
+
+  isExpansionFromBgg?: boolean;
+  bggBaseGameIdFromBgg?: number;
+  bggExpansionIdsFromBgg?: number[];
+
+  // New fields for designers, publishers, etc. from BGG
+  designersFromBgg?: string[];
+  publishersFromBgg?: string[];
+  categoriesFromBgg?: string[];
+  mechanicsFromBgg?: string[];
 }
 
 // Helper to safely get string value from BGG name objects/arrays
 const getBggName = (nameField: any): string | undefined => {
   if (!nameField) return undefined;
-  if (typeof nameField === "string") return nameField; // Should not happen with this client
-  if (Array.isArray(nameField)) { // e.g. gameDetails.names
+  if (typeof nameField === "string") return nameField;
+  if (Array.isArray(nameField)) {
     const primary = nameField.find(n => n.type === "primary");
     return primary?.value || nameField[0]?.value;
   }
-  return nameField.value; // e.g. gameDetails.name.value or searchResult.name.value
+  return nameField.value;
 };
-
 // Helper to clean up BGG descriptions
 const cleanBggDescription = (desc: string | undefined): string => {
   if (!desc) return "";
   let cleanedDesc = desc;
   try {
-    // Basic HTML entity decoding and tag stripping
-    // This is client-side, so document should be available.
-    // For a more robust solution, consider a library or server-side cleaning.
-    const tempEl = document.createElement("div");
-    tempEl.innerHTML = cleanedDesc;
+    const tempEl = document.createElement("div"); tempEl.innerHTML = cleanedDesc;
     cleanedDesc = tempEl.textContent || tempEl.innerText || "";
   } catch (e) {
-    // Fallback for environments where document is not available or other errors
-    cleanedDesc = cleanedDesc
-      .replace(/<br\s*\/?>/gi, "\n") // Replace <br> with newlines
-      .replace(/<[^>]+>/g, "") // Strip other HTML tags
-      .replace(/&amp;/g, "&")
-      .replace(/&lt;/g, "<")
-      .replace(/&gt;/g, ">")
-      .replace(/&quot;/g, "\"")
-      .replace(/&apos;/g, "'")
-      .replace(/&#10;/g, "\n") // Newline character
-      .replace(/&nbsp;/g, " ")
-      .replace(/&rsquo;/g, "’")
-      .replace(/&ldquo;/g, "“")
-      .replace(/&rdquo;/g, "”")
-      .replace(/&mdash;/g, "—")
-      .replace(/&ndash;/g, "–");
+    cleanedDesc = cleanedDesc.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&quot;/g, "\"").replace(/&apos;/g, "'").replace(/&#10;/g, "\n")
+      .replace(/&nbsp;/g, " ").replace(/&rsquo;/g, "’").replace(/&ldquo;/g, "“")
+      .replace(/&rdquo;/g, "”").replace(/&mdash;/g, "—").replace(/&ndash;/g, "–");
   }
   return cleanedDesc.trim();
 };
-
 
 export const useBggFormStore = defineStore("bggForm", {
   state: () => ({
@@ -66,11 +57,7 @@ export const useBggFormStore = defineStore("bggForm", {
   }),
   actions: {
     setBggGameData(rawBggData: any) { // rawBggData is the direct JSON from bggClient.thing.query
-      if (!rawBggData) {
-        this.bggGameDataForForm = null;
-        return;
-      }
-
+      if (!rawBggData) { this.bggGameDataForForm = null; return; }
       this.bggGameDataForForm = {
         name: getBggName(rawBggData.name || rawBggData.names),
         description: cleanBggDescription(rawBggData.description?.value),
@@ -80,14 +67,19 @@ export const useBggFormStore = defineStore("bggForm", {
         bggComplexity: parseFloat(rawBggData.statistics?.ratings?.averageweight?.value?.toFixed(2)) || undefined,
         minPlayers: rawBggData.minplayers?.value,
         maxPlayers: rawBggData.maxplayers?.value,
-        playingTime: rawBggData.playingtime?.value || rawBggData.minplaytime?.value, // BGG has playingtime, minplaytime, maxplaytime
+        playingTime: rawBggData.playingtime?.value || rawBggData.minplaytime?.value,
         thumbnailUrl: rawBggData.thumbnail?.value,
         imageUrl: rawBggData.image?.value,
+        isExpansionFromBgg: rawBggData._isExpansionFromBgg,
+        bggBaseGameIdFromBgg: rawBggData._bggBaseGameIdFromBgg,
+        bggExpansionIdsFromBgg: rawBggData._bggExpansionIdsFromBgg,
+        // Populate new array fields from augmented backend response
+        designersFromBgg: rawBggData._designers || [],
+        publishersFromBgg: rawBggData._publishers || [],
+        categoriesFromBgg: rawBggData._categories || [],
+        mechanicsFromBgg: rawBggData._mechanics || [],
       };
     },
-    clearBggGameData() {
-      this.bggGameDataForForm = null;
-    },
-    // getProcessedBggData is no longer strictly needed if AddBoardGameForm directly uses bggGameDataForForm properties
+    clearBggGameData() { this.bggGameDataForForm = null; },
   },
 });
