@@ -4,7 +4,7 @@ import { BoardGame } from "./types";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
-import { BggClient } from "boardgamegeekclient"; // Import BGG Client
+import { BggClient } from "boardgamegeekclient";
 
 dotenv.config();
 
@@ -24,31 +24,30 @@ const loadGames = () => {
       if (fileData) {
         const parsedData = JSON.parse(fileData);
         boardGames = Array.isArray(parsedData) ? parsedData : [];
+        // Ensure playCount is a number for existing items
+        boardGames.forEach(game => {
+          if (game.playCount === undefined || game.playCount === null) game.playCount = 0;
+        });
         console.log("Board games loaded from", DATA_FILE);
       } else {
-        boardGames = [];
-        console.log(DATA_FILE, "is empty. Starting with no games.");
+        boardGames = []; console.log(DATA_FILE, "is empty.");
       }
     } else {
-      console.log(DATA_FILE, "not found. Starting with no games and will create it on add.");
-      boardGames = [];
+      console.log(DATA_FILE, "not found."); boardGames = [];
     }
   } catch (error) {
-    console.error("Error loading games from file:", error);
-    boardGames = [];
+    console.error("Error loading games:", error); boardGames = [];
   }
 };
 
 const saveGames = async () => {
   try {
     const dataDir = path.dirname(DATA_FILE);
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
+    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
     await fs.promises.writeFile(DATA_FILE, JSON.stringify(boardGames, null, 2), "utf-8");
     console.log("Board games saved to", DATA_FILE);
   } catch (error) {
-    console.error("Error saving games to file:", error);
+    console.error("Error saving games:", error);
   }
 };
 
@@ -60,66 +59,67 @@ app.get("/api/boardgames", (req: Request, res: Response) => {
 });
 
 app.post("/api/boardgames", async (req: Request, res: Response) => {
-  const { name, description, version } = req.body as { name: string; description: string; version?: string };
+  const { /* fields */
+    name, description, version, bggId, status,
+    bggRating, bggComplexity, yearPublished, minPlayers, maxPlayers,
+    playingTime, thumbnailUrl, imageUrl
+  } = req.body as Partial<BoardGame>;
+
   if (!name || !description) {
     return res.status(400).json({ message: "Name and description are required" });
   }
-  const newGame: BoardGame = { id: uuidv4(), name, description, version };
+
+  const newGame: BoardGame = {
+    id: uuidv4(), name, description, version, bggId, status,
+    bggRating, bggComplexity, yearPublished, minPlayers, maxPlayers,
+    playingTime, thumbnailUrl, imageUrl,
+    playCount: 0, // Initialized here
+  };
   boardGames.push(newGame);
   await saveGames();
   res.status(201).json(newGame);
 });
 
+// NEW: PATCH /api/boardgames/:id/played
+app.patch("/api/boardgames/:id/played", async (req: Request, res: Response) => {
+  const gameId = req.params.id;
+  const gameIndex = boardGames.findIndex(g => g.id === gameId);
+
+  if (gameIndex === -1) {
+    return res.status(404).json({ message: "Game not found" });
+  }
+
+  const game = boardGames[gameIndex];
+  game.playCount = (game.playCount || 0) + 1;
+  game.lastPlayedDate = new Date().toISOString();
+
+  boardGames[gameIndex] = game; // Update the array
+  await saveGames();
+  res.json(game);
+});
+
+
 // --- BGG API Integration Endpoints ---
 const bggClient = BggClient.Create();
 
-// GET /api/bgg/search?name=[gameName]
 app.get("/api/bgg/search", async (req: Request, res: Response) => {
   const gameName = req.query.name as string;
-  if (!gameName) {
-    return res.status(400).json({ message: "Game name query parameter is required" });
-  }
+  if (!gameName) return res.status(400).json({ message: "Game name query parameter is required" });
   try {
-    // Search for games by name. type: "boardgame" filters results.
     const searchResults = await bggClient.search.query({ query: gameName, type: "boardgame" });
-    if (!searchResults || searchResults.length === 0) {
-      return res.json([]); // Return empty array if no results
-    }
-    // We might want to simplify the response, but for now, return raw-ish search results.
-    // Each item in searchResults typically has id, name, yearpublished.
-    res.json(searchResults);
-  } catch (error) {
-    console.error("Error searching BGG:", error);
-    res.status(500).json({ message: "Failed to search BoardGameGeek" });
-  }
+    res.json(searchResults || []);
+  } catch (error) { console.error("Error searching BGG:", error); res.status(500).json({ message: "Failed to search BGG" }); }
 });
 
-// GET /api/bgg/game/[bggId]
 app.get("/api/bgg/game/:bggId", async (req: Request, res: Response) => {
-  const bggId = parseInt(req.params.bggId, 10);
-  if (isNaN(bggId)) {
-    return res.status(400).json({ message: "Valid BGG ID path parameter is required" });
-  }
+  const bggIdNum = parseInt(req.params.bggId, 10);
+  if (isNaN(bggIdNum)) return res.status(400).json({ message: "Valid BGG ID is required" });
   try {
-    // Fetch game details by BGG ID. Stats: 1 includes ratings.
-    const gameDetails = await bggClient.thing.query({ id: [bggId], stats: 1 });
-    if (!gameDetails || gameDetails.length === 0) {
-      return res.status(404).json({ message: "Game not found on BGG" });
-    }
-    // gameDetails is an array, we want the first item.
-    // The client might return a lot of data. We can simplify this later.
+    const gameDetails = await bggClient.thing.query({ id: [bggIdNum], stats: 1, versions: 1, videos: 1 });
+    if (!gameDetails || gameDetails.length === 0) return res.status(404).json({ message: "Game not found on BGG" });
     res.json(gameDetails[0]);
-  } catch (error) {
-    console.error("Error fetching game details from BGG:", error);
-    res.status(500).json({ message: "Failed to fetch game details from BoardGameGeek" });
-  }
+  } catch (error) { console.error("Error fetching BGG details:", error); res.status(500).json({ message: "Failed to fetch BGG details" }); }
 });
 
-
-app.get("/", (req: Request, res: Response) => {
-  res.send("Hello from Express backend!");
-});
-
-app.listen(port, () => {
-  console.log(`Backend server is running on http://localhost:${port}`);
-});
+app.get("/", (req: Request, res: Response) => res.send("Hello from Express backend!"));
+app.listen(port, () => console.log(`Backend server running on http://localhost:${port}`));

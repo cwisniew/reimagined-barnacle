@@ -23,7 +23,7 @@
     <div v-if="loadingDetails" class="loading-details">Loading game details...</div>
     <div v-if="gameDetailsError" class="error">{{ gameDetailsError }}</div>
     <div v-if="selectedGameDetails" class="game-details">
-      <h3>Details for {{ primaryGameName(selectedGameDetails) }} (ID: {{ selectedGameDetails.id }})</h3>
+      <h3>Details for {{ primaryGameNameFromDetails(selectedGameDetails) }} (ID: {{ selectedGameDetails.id }})</h3>
       <button @click="useThisData" class="use-data-btn">Use Data for New Game</button>
       <button @click="clearDetails" class="clear-details-btn">Clear Details</button>
       <pre>{{ JSON.stringify(selectedGameDetails, null, 2) }}</pre>
@@ -35,19 +35,12 @@
 import { ref } from "vue";
 import { useBggFormStore } from "../stores/bggFormStore";
 
-interface BggName { value: string; type?: string; sortindex?: number; }
-interface BggYearPublished { value: number; }
-interface BggSearchResultItem { id: number; name?: BggName; yearpublished?: BggYearPublished; }
-interface BggGameDetails {
-  id: number; type?: string; name?: BggName; names?: BggName[];
-  description?: { value: string }; yearpublished?: BggYearPublished;
-  minplayers?: { value: number }; maxplayers?: { value: number };
-  playingtime?: { value: number }; minplaytime?: { value: number };
-  maxplaytime?: { value: number }; minage?: { value: number };
-  statistics?: { ratings?: { usersrated?: { value: number }; average?: { value: number }; stddev?: { value: number }; }; };
-  thumbnail?: { value: string }; image?: { value: string };
-  links?: Array<{ type: string; id: number; value: string; }>;
-}
+// Simplified interfaces, actual structure from BGG client can be more complex
+interface BggSearchName { value: string; }
+interface BggSearchYear { value: number; }
+interface BggSearchResultItem { id: number; name?: BggSearchName; yearpublished?: BggSearchYear; }
+// For selectedGameDetails, we will treat it as `any` for simplicity here,
+// as the structure is complex and bggFormStore handles the mapping.
 
 const searchQuery = ref("");
 const lastSearchQuery = ref("");
@@ -56,19 +49,19 @@ const loadingSearch = ref(false);
 const searchError = ref<string | null>(null);
 const searched = ref(false);
 
-const selectedGameDetails = ref<BggGameDetails | null>(null);
+const selectedGameDetails = ref<any | null>(null); // Using any for the raw BGG object
 const loadingDetails = ref(false);
 const gameDetailsError = ref<string | null>(null);
 
 const bggFormStore = useBggFormStore();
 
-const primaryGameName = (details: BggGameDetails | null): string => {
+const primaryGameNameFromDetails = (details: any): string => {
   if (!details) return "N/A";
-  if (details.name?.value) return details.name.value;
-  if (details.names && details.names.length > 0) {
-    const primary = details.names.find(n => n.type === "primary");
+  if (details.name?.value) return details.name.value; // This is how search result name is structured
+  if (Array.isArray(details.names)) { // This is how thing query name is structured
+    const primary = details.names.find((n: any) => n.type === "primary");
     if (primary) return primary.value;
-    return details.names[0].value;
+    return details.names[0]?.value || "Unknown Name";
   }
   return "Unknown Name";
 };
@@ -80,8 +73,8 @@ async function performSearch() {
   lastSearchQuery.value = searchQuery.value;
   try {
     const response = await fetch(`/api/bgg/search?name=${encodeURIComponent(searchQuery.value)}`);
-    if (!response.ok) { const ed = await response.json().catch(()=>({message:"Search request failed"})); throw new Error(ed.message||"Failed to search BGG"); }
-    searchResults.value = await response.json() as BggSearchResultItem[];
+    if (!response.ok) { const ed = await response.json().catch(()=>({message:"Search failed"})); throw new Error(ed.message||"Failed to search BGG"); }
+    searchResults.value = await response.json();
   } catch (err: any) { searchError.value = err.message; } finally { loadingSearch.value = false; }
 }
 
@@ -90,18 +83,13 @@ async function fetchGameDetails(bggId: number) {
   try {
     const response = await fetch(`/api/bgg/game/${bggId}`);
     if (!response.ok) { const ed=await response.json().catch(()=>({message:"Detail fetch failed"})); throw new Error(ed.message||`Failed to fetch details for BGG ID ${bggId}`);}
-    selectedGameDetails.value = await response.json() as BggGameDetails;
+    selectedGameDetails.value = await response.json();
   } catch (err: any) { gameDetailsError.value = err.message; } finally { loadingDetails.value = false; }
 }
 
 function useThisData() {
   if (selectedGameDetails.value) {
-    bggFormStore.setBggGameData({
-      name: primaryGameName(selectedGameDetails.value),
-      description: selectedGameDetails.value.description?.value || "",
-      yearPublished: selectedGameDetails.value.yearpublished?.value,
-      bggId: selectedGameDetails.value.id,
-    });
+    bggFormStore.setBggGameData(selectedGameDetails.value); // Pass the whole raw object
     alert("Game data has been sent to the Add New Game form!");
   }
 }
@@ -110,9 +98,11 @@ function clearDetails() {
     selectedGameDetails.value = null;
     gameDetailsError.value = null;
 }
+
 </script>
 
 <style scoped>
+/* Styles remain the same as before */
 .bgg-search { margin-top: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background-color: #f0f8ff; }
 .search-input { display: flex; gap: 10px; margin-bottom: 15px; }
 .search-input input[type="text"] { flex-grow: 1; padding: 8px; border: 1px solid #ccc; border-radius: 3px; }
