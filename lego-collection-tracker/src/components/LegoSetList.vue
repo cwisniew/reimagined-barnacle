@@ -3,10 +3,10 @@
     <!-- Title was here, App.vue has a global title, list could have its own sub-title if needed -->
     <!-- <h2>My Lego Collection</h2> -->
 
-    <div v-if="props.isLoading && props.sets.length === 0" class="loading-message">
+    <div v-if="props.isLoading && props.sets.length === 0" class="loading-message list-message"> <!-- Added base class -->
       <p>Loading sets...</p>
     </div>
-    <div v-else-if="props.errorMessage" class="error-message">
+    <div v-else-if="props.errorMessage" class="error-message list-message"> <!-- Added base class -->
       <p>Error loading sets: {{ props.errorMessage }}</p>
       <p>Please try refreshing or check back later.</p>
     </div>
@@ -16,10 +16,10 @@
         :key="set.id"
         :set="set"
         @edit-set="handleEditSet"
-        @delete-set="handleDeleteSet" 
+        @delete-set="handleDeleteSet"
       />
     </div>
-    <div v-else class="empty-list-message">
+    <div v-else class="empty-list-message list-message"> <!-- Added base class -->
       <p>No Lego sets match your current filters, or your collection is empty. Try adding some!</p>
     </div>
   </div>
@@ -29,10 +29,9 @@
 import { defineProps, defineEmits, type PropType } from 'vue'; // Keep defineEmits
 import LegoSetCard from './LegoSetCard.vue';
 import type { LegoSet } from '../stores/legoStore';
-// legoStore import might still be used by handlers if they need to get fresh data after an action,
-// but for display, it relies on props.
-import legoStore from '../stores/legoStore';
+import { useLegoSetStore } from '../stores/legoStore'; // NEW
 
+const legoSetStore = useLegoSetStore(); // NEW
 
 const props = defineProps({
   sets: {
@@ -69,40 +68,51 @@ const handleDeleteSet = (setId: number) => {
 </script>
 
 <style scoped>
-.loading-message, .error-message {
-  text-align: center;
-  padding: 40px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  margin-top: 20px;
-  font-size: 1.2em;
-  color: #555;
-}
-.error-message {
-  background-color: #ffebee; /* Light pink for errors */
-  color: #c62828; /* Darker red for error text */
-}
-
 .lego-set-list-container {
-  padding: 20px;
+  /* Container padding is handled by App.vue's .container class */
 }
 
 .lego-set-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); /* Responsive grid */
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); /* Increased min-width for cards */
+  gap: 1.25rem; /* Using rem for gap */
 }
 
-.empty-list-message {
+/* Base style for all messages (loading, error, empty) */
+.list-message {
   text-align: center;
-  padding: 40px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  margin-top: 20px;
+  padding: 2rem 1rem; /* Consistent padding */
+  margin-top: 1rem; /* Consistent margin */
+  border-radius: var(--border-radius, 0.3rem); /* Use CSS var with fallback */
+  background-color: var(--light-color, #f8f9fa);
+  border: 1px solid var(--border-color, #dee2e6);
+  box-shadow: var(--box-shadow, 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075));
+}
+.list-message p {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--text-muted-color, #6c757d);
+}
+.list-message p:last-child:not(:first-child) { /* Add space if there are multiple paragraphs */
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+
+.loading-message p {
+  /* Specific styling for loading message text if needed */
+  color: var(--primary-color, #007bff);
+}
+
+.error-message {
+  background-color: #f8d7da; /* Consistent with App.vue global error */
+  border-color: #f5c6cb;
+}
+.error-message p {
+  color: var(--danger-color, #721c24); /* Consistent error text color */
 }
 
 .empty-list-message p {
-  font-size: 1.2em;
-  color: #555;
+  /* Specific styling for empty list message text if needed */
 }
 </style>

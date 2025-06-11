@@ -98,8 +98,8 @@ legoSetRouter.post('/', (req: Request, res: Response) => {
     }
     console.log(`New Lego set created with ID: ${this.lastID}`);
     // Return the newly created object including the ID
-    res.status(201).json({ 
-        id: this.lastID, 
+    res.status(201).json({
+        id: this.lastID,
         name, setNumber, description, pictures, numberOfPieces,
         numberOfMinifigs, quantityOwned, storageLocation, isBuilt, status
     });
@@ -189,6 +189,11 @@ app.get('/', (req: Request, res: Response) => {
 });
 
 // Start the server
-app.listen(port, () => {
-  console.log(`Backend server is running at http://localhost:${port} with SQLite DB`);
-});
+// Only start server if this file is run directly (not imported as a module)
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Backend server is running at http://localhost:${port} with SQLite DB`);
+  });
+}
+
+export default app; // Export app for testing

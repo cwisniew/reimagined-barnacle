@@ -75,15 +75,15 @@
         <p>Submitting...</p>
       </div>
       <!-- Display global store loading message if not using local isSubmitting for this -->
-      <div v-else-if="legoStore.state.loading && !isSubmitting" class="form-loading-message">
+      <div v-else-if="legoSetStore.loading && !isSubmitting" class="form-loading-message">
         <p>Loading...</p>
       </div>
 
       <div class="form-actions">
-        <button type="submit" :disabled="isSubmitting || legoStore.state.loading">
+        <button type="submit" :disabled="isSubmitting || legoSetStore.loading">
           {{ editingSet ? 'Update Set' : 'Add Set' }}
         </button>
-        <button type="button" @click="handleCancel" :disabled="isSubmitting || legoStore.state.loading">Cancel</button>
+        <button type="button" @click="handleCancel" :disabled="isSubmitting || legoSetStore.loading">Cancel</button>
       </div>
     </form>
   </div>
@@ -91,7 +91,10 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, type PropType } from 'vue';
-import legoStore, { type LegoSet, type CreateLegoSetData } from '../stores/legoStore'; // UpdateLegoSetData might be implicitly handled by Partial<LegoSet>
+import { useLegoSetStore } from '../stores/legoStore'; // NEW
+import type { LegoSet, CreateLegoSetData } from '../stores/legoStore'; // Types still useful
+
+const legoSetStore = useLegoSetStore(); // NEW
 
 const props = defineProps({
   editingSet: {
@@ -108,7 +111,7 @@ const emit = defineEmits<{
 const getInitialFormData = (): Omit<LegoSet, 'id'> => {
   if (props.editingSet) {
     // Ensure all fields defined in the form are present
-    return { 
+    return {
         name: props.editingSet.name,
         setNumber: props.editingSet.setNumber,
         description: props.editingSet.description || '',
@@ -155,12 +158,12 @@ watch(() => props.editingSet, (newSet) => {
 const handleSubmit = async () => {
   localError.value = null;
   isSubmitting.value = true;
-  legoStore.state.error = null; // Clear global store error before new submission
+  legoSetStore.error = null; // NEW - Clear global store error (or use action)
 
   try {
     let success = false;
     if (props.editingSet && props.editingSet.id) {
-      const result = await legoStore.updateSet(props.editingSet.id, formData.value);
+      const result = await legoSetStore.updateSet(props.editingSet.id, formData.value); // NEW
       if (result) {
         success = true;
       }
@@ -178,7 +181,7 @@ const handleSubmit = async () => {
         isBuilt: formData.value.isBuilt,
         status: formData.value.status,
       };
-      const result = await legoStore.addSet(createData);
+      const result = await legoSetStore.addSet(createData); // NEW
       if (result) {
         success = true;
       }
@@ -189,11 +192,11 @@ const handleSubmit = async () => {
     } else {
       // If success is false but no specific error was thrown by store (e.g. store returns null)
       // Use global error from store if available, or set a generic local one.
-      localError.value = legoStore.state.error || 'Submission failed. Please try again.';
+      localError.value = legoSetStore.error || 'Submission failed. Please try again.'; // NEW
     }
   } catch (error: any) { // Catch any unexpected errors from store methods
     console.error("Form submission error:", error);
-    localError.value = error.message || legoStore.state.error || 'An unexpected error occurred.';
+    localError.value = error.message || legoSetStore.error || 'An unexpected error occurred.'; // NEW
   } finally {
     isSubmitting.value = false;
   }
@@ -207,122 +210,151 @@ const handleCancel = () => {
 </script>
 
 <style scoped>
-.form-error-message {
-  background-color: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-  padding: 10px 15px;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.form-loading-message {
-  background-color: #e2e3e5;
-  color: #383d41;
-  border: 1px solid #d6d8db;
-  padding: 10px 15px;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  text-align: center;
-}
-
+/* Using CSS variables defined in App.vue's global style, with fallbacks */
 .form-container {
-  background-color: #f9f9f9;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  max-width: 700px; /* Limit form width */
-  margin: 20px auto; /* Center form */
+  background-color: #fff; /* Cleaner background */
+  padding: 1.5rem 2rem; /* More padding */
+  border-radius: var(--border-radius, 0.3rem);
+  box-shadow: var(--box-shadow, 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075));
+  /* max-width can be controlled by .modal-content in App.vue, or set here if used outside modal */
 }
 
 .form-container h3 {
   text-align: center;
-  margin-bottom: 20px;
-  color: #333;
+  margin-bottom: 1.5rem; /* More space below title */
+  color: var(--text-color, #212529);
+  font-weight: 500;
+  font-size: 1.5rem;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr); /* Two columns */
-  gap: 15px 20px; /* Row and column gap */
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsive columns */
+  gap: 1rem 1.5rem; /* Consistent gap */
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
+  margin-bottom: 0.5rem; /* Space below each group */
 }
 
 .form-group.full-width {
-  grid-column: 1 / -1; /* Span full width */
+  grid-column: 1 / -1;
 }
 
 .form-group label {
-  margin-bottom: 5px;
-  font-weight: bold;
-  color: #555;
+  margin-bottom: 0.3rem; /* Space between label and input */
+  font-weight: 500; /* Slightly less bold */
+  color: var(--text-muted-color, #6c757d);
+  font-size: 0.9rem;
 }
 
 .form-group input[type="text"],
 .form-group input[type="number"],
 .form-group textarea,
 .form-group select {
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1em;
+  padding: 0.6rem 0.75rem; /* Standardized padding */
+  border: 1px solid var(--border-color, #ced4da);
+  border-radius: var(--border-radius, 0.3rem);
+  font-size: 0.95rem; /* Slightly adjusted font size */
+  background-color: #fff;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.form-group input[type="text"]:focus,
+.form-group input[type="number"]:focus,
+.form-group textarea:focus,
+.form-group select:focus {
+  border-color: var(--primary-color, #007bff);
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
 .form-group textarea {
-  min-height: 80px;
+  min-height: 100px; /* Increased min-height */
   resize: vertical;
 }
 
 .form-group-checkbox {
+  display: flex; /* Use flex for better alignment */
   flex-direction: row;
   align-items: center;
-  grid-column: 1 / -1; /* Span full width for better layout */
+  grid-column: 1 / -1;
+  padding-top: 0.5rem; /* Align with other form groups */
 }
 
 .form-group-checkbox input[type="checkbox"] {
-  margin-right: 10px;
-  width: auto; /* Override default input width for checkbox */
-  height: auto; /* Override default input height for checkbox */
+  margin-right: 0.5rem; /* Space between checkbox and label */
+  height: 1.1em; /* Slightly larger checkbox */
+  width: 1.1em;
+  accent-color: var(--primary-color, #007bff); /* Color the checkbox */
 }
 
 .form-group-checkbox label {
-  margin-bottom: 0; /* Align with checkbox */
-  font-weight: normal;
+  margin-bottom: 0;
+  font-weight: normal; /* Normal weight for checkbox label */
+  color: var(--text-color, #212529);
+}
+
+/* Message styling (error and loading) */
+.form-message { /* Base class for form messages */
+  padding: 0.75rem 1.25rem;
+  margin-top: 1rem; /* Space above message */
+  margin-bottom: 1rem;
+  border: 1px solid transparent;
+  border-radius: var(--border-radius, 0.3rem);
+  text-align: center;
+}
+
+.form-error-message {
+  background-color: #f8d7da;
+  color: var(--danger-color, #721c24);
+  border-color: #f5c6cb;
+}
+
+.form-loading-message {
+  background-color: #e2e3e5;
+  color: var(--text-muted-color, #383d41);
+  border-color: #d6d8db;
 }
 
 .form-actions {
-  margin-top: 25px;
+  margin-top: 1.5rem; /* More space above actions */
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 0.75rem; /* Consistent gap */
+  padding-top: 1rem; /* Space if there's a border or line above */
+  border-top: 1px solid var(--border-color, #eee); /* Separator line */
 }
 
 .form-actions button {
-  padding: 10px 20px;
+  padding: 0.6rem 1.25rem; /* Standardized padding */
   border: none;
-  border-radius: 4px;
-  font-size: 1em;
+  border-radius: var(--border-radius, 0.3rem);
+  font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
 }
 
 .form-actions button[type="submit"] {
-  background-color: #28a745; /* Green */
+  background-color: var(--success-color, #28a745);
   color: white;
 }
-.form-actions button[type="submit"]:hover {
-  background-color: #218838;
+.form-actions button[type="submit"]:hover:not(:disabled) {
+  background-color: #218838; /* Darken success */
 }
 
 .form-actions button[type="button"] {
-  background-color: #6c757d; /* Gray */
+  background-color: var(--secondary-color, #6c757d);
   color: white;
 }
-.form-actions button[type="button"]:hover {
-  background-color: #5a6268;
+.form-actions button[type="button"]:hover:not(:disabled) {
+  background-color: #5a6268; /* Darken secondary */
+}
+
+.form-actions button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 </style>
