@@ -1,20 +1,8 @@
 export interface OtherLink { title: string; url: string; }
-
-export interface CardSet {
-  id: string; // UUID generated on client during add
-  categoryName: string;
-  cardCount: number;
-  cardSize?: string;
-  sleevedCount?: number;
-  sleeveNotes?: string;
-}
-
-export interface PlaySession { // New interface for detailed plays
-  id: string; // UUID generated on backend when adding
-  date: string; // ISO date string
-  playerNames?: string[];
-  notes?: string;
-}
+export interface CardSet { id:string; categoryName:string; cardCount:number; cardSize?:string; sleevedCount?:number; sleeveNotes?:string; }
+export interface PlaySession { id:string; date:string; playerNames?:string[]; notes?:string; }
+// BggVideoLink interface can remain if used by backend BGG fetch logic, but not part of BoardGame
+export interface BggVideoLink { title: string; url: string; language?: string; uploader?: string; postDate?: string; }
 
 export interface BoardGame {
   id: string; name: string; description: string; version?: string;
@@ -22,10 +10,7 @@ export interface BoardGame {
   bggRating?: number; bggComplexity?: number; yearPublished?: number;
   minPlayers?: number; maxPlayers?: number; playingTime?: number;
   thumbnailUrl?: string; imageUrl?: string;
-  // playCount?: number; // REMOVED
-  // lastPlayedDate?: string; // REMOVED
-  plays?: PlaySession[]; // ADDED for detailed play logging
-
+  plays?: PlaySession[];
   isExpansion?: boolean; baseGameAppId?: string; bggBaseGameId?: number; bggExpansionIds?: number[];
   designers?: string[]; publishers?: string[]; categories?: string[]; mechanics?: string[];
   locationRoom?: string; locationCupboard?: string; locationShelf?: string; locationNotes?: string;
@@ -34,4 +19,5 @@ export interface BoardGame {
   bggSubdomains?: string[]; bggFamilies?: string[];
   manualUrl?: string;
   cardSets?: CardSet[];
+  // bggVideoLinks?: BggVideoLink[]; // REVERTED - Not persisted on BoardGame object
 }

@@ -1,14 +1,14 @@
 import { defineStore } from "pinia";
+import type { BggVideoLink } from "../types"; // Import BggVideoLink
+
 export interface BggGameDataForForm {
   name?: string; description?: string; yearPublished?: number; bggId?: number;
   bggRating?: number; bggComplexity?: number; minPlayers?: number; maxPlayers?: number;
   playingTime?: number; thumbnailUrl?: string; imageUrl?: string;
   isExpansionFromBgg?: boolean; bggBaseGameIdFromBgg?: number; bggExpansionIdsFromBgg?: number[];
   designersFromBgg?: string[]; publishersFromBgg?: string[]; categoriesFromBgg?: string[]; mechanicsFromBgg?: string[];
-  officialWebsiteFromBgg?: string;
-  // New fields for BGG subdomains and families
-  bggSubdomainsFromBgg?: string[];
-  bggFamiliesFromBgg?: string[];
+  officialWebsiteFromBgg?: string; bggSubdomainsFromBgg?: string[]; bggFamiliesFromBgg?: string[];
+  bggVideosFromBgg?: BggVideoLink[]; // New field for videos from BGG
 }
 const getBggName=(nf:any):string|undefined => {if(!nf)return undefined;if(typeof nf==="string")return nf;if(Array.isArray(nf)){const p=nf.find(n=>n.type==="primary");return p?.value||nf[0]?.value;}return nf.value;};
 const cleanBggDesc=(d?:string):string => {if(!d)return "";let cd=d;try{const te=document.createElement("div");te.innerHTML=cd;cd=te.textContent||te.innerText||"";}catch(e){cd=cd.replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&apos;/g,"'").replace(/&#10;/g,"\n").replace(/&nbsp;/g," ").replace(/&rsquo;/g,"’").replace(/&ldquo;/g,"“").replace(/&rdquo;/g,"”").replace(/&mdash;/g,"—").replace(/&ndash;/g,"–");}return cd.trim();};
@@ -31,9 +31,8 @@ export const useBggFormStore = defineStore("bggForm", {
         designersFromBgg: rawBggData._designers || [], publishersFromBgg: rawBggData._publishers || [],
         categoriesFromBgg: rawBggData._categories || [], mechanicsFromBgg: rawBggData._mechanics || [],
         officialWebsiteFromBgg: rawBggData._officialWebsiteFromBgg,
-        // Populate new BGG classification fields
-        bggSubdomainsFromBgg: rawBggData._bggSubdomains || [],
-        bggFamiliesFromBgg: rawBggData._bggFamilies || [],
+        bggSubdomainsFromBgg: rawBggData._bggSubdomains || [], bggFamiliesFromBgg: rawBggData._bggFamilies || [],
+        bggVideosFromBgg: rawBggData._bggVideos || [], // Populate BGG videos
       };
     },
     clearBggGameData() { this.bggGameDataForForm = null; },
