@@ -1,28 +1,18 @@
 export interface OtherLink { title: string; url: string; }
 export interface CardSet { id:string; categoryName:string; cardCount:number; cardSize?:string; sleevedCount?:number; sleeveNotes?:string; }
+export interface PlaySession { id:string; date:string; playersInSession?:PlayerInPlaySession[]; notes?:string; }
+export interface PlayerInPlaySession { id:string; name:string; enjoyment?:number; won?:boolean; notes?:string; }
+export interface BggVideoLink { title: string; url: string; language?: string; uploader?: string; postDate?: string; }
 
-// New: PlayerInPlaySession interface
-export interface PlayerInPlaySession {
-  id: string; // UUID generated on client when adding to modal
-  name: string;
-  enjoyment?: number; // e.g., 1-5 scale
-  won?: boolean;
-  notes?: string;
-}
-export interface PlaySession {
-  id: string; // UUID generated on backend when play session is saved
-  date: string; // ISO date string
-  // playerNames?: string[]; // REMOVED
-  playersInSession?: PlayerInPlaySession[]; // ADDED
-  notes?: string; // Overall session notes (can still be useful)
-}
 export interface BoardGame {
   id: string; name: string; description: string; version?: string;
   bggId?: number; status?: string;
   bggRating?: number; bggComplexity?: number; yearPublished?: number;
   minPlayers?: number; maxPlayers?: number; playingTime?: number;
-  thumbnailUrl?: string; imageUrl?: string;
-  plays?: PlaySession[]; // Uses updated PlaySession
+  thumbnailUrl?: string; imageUrl?: string; // These are typically from BGG
+  userImageUrls?: string[]; // New: For user uploaded image paths/URLs
+
+  plays?: PlaySession[];
   isExpansion?: boolean; baseGameAppId?: string; bggBaseGameId?: number; bggExpansionIds?: number[];
   designers?: string[]; publishers?: string[]; categories?: string[]; mechanics?: string[];
   locationRoom?: string; locationCupboard?: string; locationShelf?: string; locationNotes?: string;

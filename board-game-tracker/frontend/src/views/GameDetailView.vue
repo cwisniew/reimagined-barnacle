@@ -18,7 +18,16 @@
 
     <div class="detail-grid">
       <div class="main-details">
-        <img v-if="game.imageUrl || game.thumbnailUrl" :src="game.imageUrl || game.thumbnailUrl" :alt="game.name + ` image`" class="game-image-detail"/>
+        <!-- User Uploaded Images Gallery / Main Image -->
+        <div v-if="game.userImageUrls && game.userImageUrls.length > 0" class="user-image-gallery-detail">
+          <img :src="game.userImageUrls[0]" :alt="game.name + ` user image 1`" class="game-image-detail primary-user-image"/>
+          <div v-if="game.userImageUrls.length > 1" class="additional-user-images">
+            <img v-for="(url, index) in game.userImageUrls.slice(1)" :key="index" :src="url" :alt="game.name + ` user image ` + (index + 2)" class="additional-user-image-thumb"/>
+          </div>
+        </div>
+        <!-- Fallback to BGG image if no user images -->
+        <img v-else-if="game.imageUrl || game.thumbnailUrl" :src="game.imageUrl || game.thumbnailUrl" :alt="game.name + ` image`" class="game-image-detail bgg-image"/>
+
         <p class="description-detail" v-html="formattedDescription"></p>
 
         <section class="detail-section card-sets-detail" v-if="game.cardSets && game.cardSets.length > 0">
@@ -44,7 +53,7 @@
 
         <section class="detail-section plays-detail">
           <h3>Play Sessions ({{ game.plays?.length || 0 }})</h3>
-          <button @click="openPlayLogModalForDetailView(game)" class="log-play-btn-detail-view">Log New Play</button>
+          <button @click="openPlayLogModalForGame(game)" class="log-play-btn-detail-view">Log New Play for This Game</button>
           <ul v-if="game.plays && game.plays.length > 0" class="play-session-detail-list">
             <li v-for="play in game.plays" :key="play.id" class="play-session-detail-item">
               <div class="play-session-header">
@@ -67,7 +76,6 @@
           </ul>
           <p v-else>No play sessions logged yet for this game.</p>
         </section>
-
       </div>
 
       <aside class="sidebar-details">
@@ -133,7 +141,7 @@ import { ref, onMounted, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useBoardGameStore } from "../stores/boardGameStore";
 import { useEditGameStore } from "../stores/editGameStore";
-import type { BoardGame, CardSet, PlaySession } from "../types"; // Import PlaySession
+import type { BoardGame, CardSet, PlaySession } from "../types";
 
 const route = useRoute(); const router = useRouter();
 const boardGameStore = useBoardGameStore(); const editGameStore = useEditGameStore();
@@ -142,7 +150,7 @@ const loading = ref(false); const error = ref<string | null>(null);
 const gameId = ref(route.params.id as string);
 
 async function fetchGame(id: string) {
-  loading.value = true; error.value = null; // game.value = null; // Don't nullify if we want to show old data while new loads
+  loading.value = true; error.value = null;
   try {
     const existingGame = boardGameStore.games.find(g => g.id === id);
     if (existingGame && boardGameStore.games.length > 0) {
@@ -152,10 +160,6 @@ async function fetchGame(id: string) {
       if (!response.ok) { if(response.status === 404) throw new Error("Game not found (404)."); throw new Error(`Fetch failed: ${response.statusText}`);}
       const fetchedGame = await response.json() as BoardGame;
       game.value = fetchedGame;
-      // Optionally update store if game was fetched directly
-      // const storeIndex = boardGameStore.games.findIndex(g => g.id === fetchedGame.id);
-      // if (storeIndex !== -1) boardGameStore.games[storeIndex] = fetchedGame;
-      // else boardGameStore.games.push(fetchedGame); // This might not be ideal if list isn't meant to grow this way
     }
   } catch (e:any) {error.value = e.message;} finally {loading.value = false;}
 }
@@ -183,20 +187,8 @@ const overallSleeveCompletionPercentage = (g: BoardGame) => {
 };
 const sleeveSetCompletion = (cs: CardSet) => cs.cardCount === 0 ? "0" : (((cs.sleevedCount || 0) / cs.cardCount) * 100).toFixed(0);
 
-// For opening Log Play Modal from GameDetailView (if we decide to move it here or make it global)
-const openPlayLogModalForDetailView = (game: BoardGame) => {
-  // This would typically call a global modal store or emit an event
-  // For now, it implies that the Log Play Modal is part of App.vue or similar global component.
-  // Or, it could be a local modal instance within GameDetailView.
-  // For simplicity, we assume the modal is still managed by BoardGameList/App for now.
-  // If we want it here, we'd replicate the modal state/logic.
-  // Let's assume for now we use the one in BoardGameList by navigating and triggering.
-  // This is not ideal. A global modal store is better.
-  // For this exercise, we'll assume the Log Play button in BoardGameList.vue is the primary way.
-  // If a "Log Play" button is desired directly on this page, it would need its own modal state.
-  editGameStore.showForm = false; // Hide edit/add form
-  // This is a placeholder - a real implementation would use a global modal or event bus.
-  alert(`Imagine a Log Play modal appearing for ${game.name}. For now, use the button on the main list.`);
+const openPlayLogModalForGame = (gameToLog: BoardGame) => {
+  alert(`To log a play for ${gameToLog.name}, please use the "Log Play" button on the main list page for now.`);
 };
 const confirmDeletePlaySession = async (gameId: string, playId: string) => {
   if (window.confirm("Are you sure you want to delete this play session?")) {
@@ -204,12 +196,10 @@ const confirmDeletePlaySession = async (gameId: string, playId: string) => {
     if (!success) {
       alert(boardGameStore.error || "Failed to delete play session.");
     } else {
-      // Refresh game data to show updated plays list
       if(game.value) fetchGame(game.value.id);
     }
   }
 };
-
 </script>
 
 <style scoped>
@@ -224,10 +214,16 @@ const confirmDeletePlaySession = async (gameId: string, playId: string) => {
 .delete-btn { background-color: #dc3545; color: white; }
 .detail-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; }
 @media (max-width: 768px) { .detail-grid { grid-template-columns: 1fr; } }
-.main-details .game-image-detail { width: 100%; max-width:400px; height: auto; border-radius: 5px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.main-details .description-detail { line-height: 1.6; color: #444; white-space: pre-wrap; }
+.main-details .game-image-detail { width: 100%; max-height: 400px; object-fit: contain; border-radius: 5px; margin-bottom: 15px; border: 1px solid #eee;}
+.user-image-gallery-detail .primary-user-image { /* Styles for the main displayed user image */ }
+.additional-user-images { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.additional-user-image-thumb { width: 80px; height: 80px; object-fit: cover; border-radius: 3px; border: 1px solid #ddd; cursor: pointer; }
+.main-details .bgg-image { /* Specific styles if BGG image is shown as fallback */ }
+.description-detail { line-height: 1.6; color: #444; white-space: pre-wrap; }
 .sidebar-details .detail-section { margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }
-.detail-section h3 { margin-top:0; margin-bottom:12px; font-size:1.2em; color:#0056b3; border-bottom:1px solid #e0e0e0; padding-bottom:8px; }
+.detail-section { margin-bottom: 20px; padding-bottom:15px; border-bottom:1px solid #f0f0f0; }
+.detail-section:last-child { border-bottom: none; }
+.detail-section h3 { margin-top:0; margin-bottom:12px; font-size:1.2em; color:#0056b3; }
 .detail-section p, .detail-section div:not(.tag-group) { margin-bottom: 8px; font-size: 0.95em; }
 .detail-section p strong { color: #333; margin-right: 5px; }
 .links-list { list-style:none; padding:0; } .links-list li { margin-bottom: 5px; }

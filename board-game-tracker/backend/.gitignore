@@ -12,3 +12,7 @@ yarn-error.log*
 # Environment variables
 .env
 /data/*.json
+
+# User uploaded game images
+uploads/game-images/*
+!uploads/game-images/.gitkeep
