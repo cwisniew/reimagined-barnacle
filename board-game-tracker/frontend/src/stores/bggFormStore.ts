@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import type { BggVideoLink } from "../types"; // Import BggVideoLink
+import type { BggVideoLink, BggReimplementation } from "../types"; // Import BggReimplementation
 
 export interface BggGameDataForForm {
   name?: string; description?: string; yearPublished?: number; bggId?: number;
@@ -8,10 +8,11 @@ export interface BggGameDataForForm {
   isExpansionFromBgg?: boolean; bggBaseGameIdFromBgg?: number; bggExpansionIdsFromBgg?: number[];
   designersFromBgg?: string[]; publishersFromBgg?: string[]; categoriesFromBgg?: string[]; mechanicsFromBgg?: string[];
   officialWebsiteFromBgg?: string; bggSubdomainsFromBgg?: string[]; bggFamiliesFromBgg?: string[];
-  bggVideosFromBgg?: BggVideoLink[]; // New field for videos from BGG
+  bggVideosFromBgg?: BggVideoLink[];
+  bggReimplementationsFromBgg?: BggReimplementation[]; // New field
 }
-const getBggName=(nf:any):string|undefined => {if(!nf)return undefined;if(typeof nf==="string")return nf;if(Array.isArray(nf)){const p=nf.find(n=>n.type==="primary");return p?.value||nf[0]?.value;}return nf.value;};
-const cleanBggDesc=(d?:string):string => {if(!d)return "";let cd=d;try{const te=document.createElement("div");te.innerHTML=cd;cd=te.textContent||te.innerText||"";}catch(e){cd=cd.replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&apos;/g,"'").replace(/&#10;/g,"\n").replace(/&nbsp;/g," ").replace(/&rsquo;/g,"’").replace(/&ldquo;/g,"“").replace(/&rdquo;/g,"”").replace(/&mdash;/g,"—").replace(/&ndash;/g,"–");}return cd.trim();};
+const getBggName=(nf:any):string|undefined=>{if(!nf)return undefined;if(typeof nf==="string")return nf;if(Array.isArray(nf)){const p=nf.find(n=>n.type==="primary");return p?.value||nf[0]?.value;}return nf.value;};
+const cleanBggDesc=(d?:string):string=>{if(!d)return "";let cd=d;try{const te=document.createElement("div");te.innerHTML=cd;cd=te.textContent||te.innerText||"";}catch(e){cd=cd.replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g,"").replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,"\"").replace(/&apos;/g,"'").replace(/&#10;/g,"\n").replace(/&nbsp;/g," ").replace(/&rsquo;/g,"’").replace(/&ldquo;/g,"“").replace(/&rdquo;/g,"”").replace(/&mdash;/g,"—").replace(/&ndash;/g,"–");}return cd.trim();};
 
 export const useBggFormStore = defineStore("bggForm", {
   state: () => ({ bggGameDataForForm: null as BggGameDataForForm | null }),
@@ -32,7 +33,8 @@ export const useBggFormStore = defineStore("bggForm", {
         categoriesFromBgg: rawBggData._categories || [], mechanicsFromBgg: rawBggData._mechanics || [],
         officialWebsiteFromBgg: rawBggData._officialWebsiteFromBgg,
         bggSubdomainsFromBgg: rawBggData._bggSubdomains || [], bggFamiliesFromBgg: rawBggData._bggFamilies || [],
-        bggVideosFromBgg: rawBggData._bggVideos || [], // Populate BGG videos
+        bggVideosFromBgg: rawBggData._bggVideos || [],
+        bggReimplementationsFromBgg: rawBggData._bggReimplementations || [], // Populate
       };
     },
     clearBggGameData() { this.bggGameDataForForm = null; },
