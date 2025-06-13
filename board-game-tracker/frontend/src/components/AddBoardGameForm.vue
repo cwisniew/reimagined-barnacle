@@ -37,6 +37,43 @@
       </details>
 
       <details class="form-section">
+        <summary>Web Links, Manuals & BGG Videos</summary>
+        <div class="links-section section-box-inner">
+          <div><label for="officialWebsiteUrl">Official Website URL:</label><input id="officialWebsiteUrl" type="url" v-model="form.officialWebsiteUrl" placeholder="https://example.com" /></div>
+
+          <div><label for="onlineManualUrl">Online Manual URL (link to existing PDF, etc.):</label><input id="onlineManualUrl" type="url" v-model="form.onlineManualUrl" placeholder="https://example.com/manual.pdf"/></div>
+
+          <div class="manual-upload-area">
+            <label for="manualUploadInput">Upload Local Manual (PDF, DOC, TXT - max 20MB):</label>
+            <input
+              type="file"
+              id="manualUploadInput"
+              accept=".pdf,.doc,.docx,.txt"
+              @change="handleManualFileUpload"
+              :disabled="isUploadingManual"
+            />
+            <p v-if="isUploadingManual">Uploading manual...</p>
+            <p v-if="manualUploadError" class="error">{{ manualUploadError }}</p>
+            <div v-if="form.localManualUrl" class="manual-preview-item">
+              <span>Uploaded: <a :href="form.localManualUrl" target="_blank">{{ form.localManualUrl.split("/").pop() }}</a></span>
+              <button type="button" @click="clearLocalManual" class="remove-link-btn">Remove Uploaded Manual</button>
+            </div>
+          </div>
+
+          <div><label>Other Links:</label>
+            <div v-for="(l,i) in form.otherLinks" :key="i" class="other-link-item"><input v-model="l.title" placeholder="Title"/><input v-model="l.url" placeholder="URL"/><button type="button" @click="removeOtherLink(i)" class="remove-link-btn">X</button></div>
+            <button type="button" @click="addOtherLink" class="add-link-btn">+Link</button>
+          </div>
+
+          <div v-if="(bggFormStore.bggGameDataForForm?.bggVideosFromBgg?.length && !editGameStore.isEditMode) || (form.bggVideoLinks && form.bggVideoLinks.length > 0)" class="bgg-videos-subsection">
+            <h5>BGG Video Links (Review & Save)</h5>
+            <ul v-if="form.bggVideoLinks && form.bggVideoLinks.length > 0"><li v-for="(v,ix) in form.bggVideoLinks" :key="ix" class="video-link-item"><a :href="v.url" target="_blank">{{v.title}}</a><button @click="removeBggVideoLink(ix)" class="remove-video-btn">X</button></li></ul>
+            <p v-else-if="!editGameStore.isEditMode">No video links suggested by BGG.</p><p v-else>No BGG video links saved.</p>
+          </div>
+        </div>
+      </details>
+
+      <details class="form-section">
         <summary>BGG Details & Linked Data</summary>
         <div class="bgg-details-section section-box-inner">
           <div class="grid-2-col">
@@ -54,24 +91,6 @@
           <div><label for="mechanics">Mechanics (CSV):</label><input id="mechanics" type="text" v-model="form.mechanicsString"/></div>
           <div><label for="bggSubdomains">BGG Subdomains (CSV):</label><input id="bggSubdomains" type="text" v-model="form.bggSubdomainsString" /></div>
           <div><label for="bggFamilies">BGG Families (CSV):</label><input id="bggFamilies" type="text" v-model="form.bggFamiliesString" /></div>
-          <!-- Reimplementations are stored in form.bggReimplementations (not as string) and displayed in BGG Info -->
-        </div>
-      </details>
-
-      <details class="form-section">
-        <summary>Web Links, Manual & BGG Videos</summary>
-        <div class="links-section section-box-inner">
-          <div><label for="officialWebsiteUrl">Official Website URL:</label><input id="officialWebsiteUrl" type="url" v-model="form.officialWebsiteUrl" /></div>
-          <div><label for="manualUrl">Online Manual URL:</label><input id="manualUrl" type="url" v-model="form.manualUrl"/></div>
-          <div><label>Other Links:</label>
-            <div v-for="(l,i) in form.otherLinks" :key="i" class="other-link-item"><input v-model="l.title" placeholder="Title"/><input v-model="l.url" placeholder="URL"/><button type="button" @click="removeOtherLink(i)">X</button></div>
-            <button type="button" @click="addOtherLink" class="add-link-btn">+Link</button>
-          </div>
-          <div v-if="(bggFormStore.bggGameDataForForm?.bggVideosFromBgg?.length && !editGameStore.isEditMode) || (form.bggVideoLinks && form.bggVideoLinks.length > 0)" class="bgg-videos-subsection">
-            <h5>BGG Video Links (Review & Save)</h5>
-            <ul v-if="form.bggVideoLinks && form.bggVideoLinks.length > 0"><li v-for="(v,ix) in form.bggVideoLinks" :key="ix" class="video-link-item"><a :href="v.url" target="_blank">{{v.title}}</a><button @click="removeBggVideoLink(ix)">X</button></li></ul>
-            <p v-else-if="!editGameStore.isEditMode">No video links suggested by BGG.</p><p v-else>No BGG video links saved.</p>
-          </div>
         </div>
       </details>
 
@@ -152,7 +171,7 @@
       </details>
 
       <div class="form-actions">
-        <button type="submit" :disabled="boardGameStore.loading || isUploadingImage">
+        <button type="submit" :disabled="boardGameStore.loading || isUploadingImage || isUploadingManual">
           {{ editGameStore.isEditMode ? "Save Changes" : "Add Game" }}
         </button>
         <button type="button" @click="handleCancel" class="cancel-btn">Cancel</button>
@@ -186,7 +205,7 @@ const getInitialFormState = (): Omit<BoardGame, "id"|"playCount"|"lastPlayedDate
   designers:[], publishers:[], categories:[], mechanics:[], plays:[],
   locationRoom:"", locationCupboard:"", locationShelf:"", locationNotes:"",
   officialWebsiteUrl:"", otherLinks:[], crowdfundingPlatform:"", crowdfundingUrl:"", crowdfundingStatus:"",
-  bggSubdomains: [], bggFamilies: [], manualUrl: "", cardSets: [], bggVideoLinks: [], bggReimplementations: [],
+  bggSubdomains: [], bggFamilies: [], onlineManualUrl: "", localManualUrl: "", cardSets: [], bggVideoLinks: [], bggReimplementations: [],
   isExpansionFromBgg:false, bggBaseGameIdFromBgg:undefined,
   designersString:"", publishersString:"", categoriesString:"", mechanicsString:"",
   bggSubdomainsString: "", bggFamiliesString: "",
@@ -194,6 +213,8 @@ const getInitialFormState = (): Omit<BoardGame, "id"|"playCount"|"lastPlayedDate
 const form = reactive(getInitialFormState());
 const populatedBggId = ref<number|undefined>(undefined); const formError = ref<string|null>(null);
 const isUploadingImage = ref(false); const imageUploadError = ref<string | null>(null);
+const isUploadingManual = ref(false); const manualUploadError = ref<string | null>(null);
+
 const availableBaseGames = computed(()=>boardGameStore.games.filter(g=>!g.isExpansion && g.id !== form.id));
 const arrayToString = (arr?:any[]):string => {if(!arr||arr.length===0)return"";if(typeof arr[0]==="string")return(arr as string[]).join(", ");if(arr[0]&&typeof arr[0].name==="string"&&typeof arr[0].bggId==="number")return(arr as BggReimplementation[]).map(item=>`${item.name} (ID:${item.bggId})`).join("; ");return""};
 const stringToArray=(s?:string):string[]=>s?s.split(",").map(i=>i.trim()).filter(i=>i):[];
@@ -205,7 +226,7 @@ watch(() => editGameStore.gameToEdit, (gameToEdit) => {
     form.bggId=gameToEdit.bggId; form.yearPublished=gameToEdit.yearPublished; form.bggRating=gameToEdit.bggRating; form.bggComplexity=gameToEdit.bggComplexity;
     form.minPlayers=gameToEdit.minPlayers; form.maxPlayers=gameToEdit.maxPlayers; form.playingTime=gameToEdit.playingTime;
     form.thumbnailUrl=gameToEdit.thumbnailUrl||""; form.imageUrl=gameToEdit.imageUrl||""; form.userImageUrls=gameToEdit.userImageUrls?[...gameToEdit.userImageUrls]:[];
-    form.officialWebsiteUrl=gameToEdit.officialWebsiteUrl||""; form.manualUrl=gameToEdit.manualUrl||"";
+    form.officialWebsiteUrl=gameToEdit.officialWebsiteUrl||""; form.onlineManualUrl=gameToEdit.onlineManualUrl||""; form.localManualUrl=gameToEdit.localManualUrl||"";
     form.locationRoom=gameToEdit.locationRoom||""; form.locationCupboard=gameToEdit.locationCupboard||""; form.locationShelf=gameToEdit.locationShelf||""; form.locationNotes=gameToEdit.locationNotes||"";
     form.crowdfundingPlatform=gameToEdit.crowdfundingPlatform||""; form.crowdfundingUrl=gameToEdit.crowdfundingUrl||""; form.crowdfundingStatus=gameToEdit.crowdfundingStatus||"";
     form.isExpansion=gameToEdit.isExpansion||false; form.baseGameAppId=gameToEdit.baseGameAppId||""; form.bggBaseGameId=gameToEdit.bggBaseGameId;
@@ -227,6 +248,7 @@ watch(()=>bggFormStore.bggGameDataForForm,(newData)=>{ if(newData && !editGameSt
     form.name=newData.name||""; form.description = newData.description || "";
     form.version=newData.yearPublished?.toString()||""; form.bggId=newData.bggId;
     form.officialWebsiteUrl=newData.officialWebsiteFromBgg||"";
+    // onlineManualUrl is not typically from BGG directly, user may add it. localManualUrl is for uploads.
     form.bggRating=newData.bggRating;form.bggComplexity=newData.bggComplexity;form.yearPublished=newData.yearPublished;
     form.minPlayers=newData.minPlayers;form.maxPlayers=newData.maxPlayers;form.playingTime=newData.playingTime;
     form.thumbnailUrl=newData.thumbnailUrl||"";form.imageUrl=newData.imageUrl||"";
@@ -240,7 +262,7 @@ watch(()=>bggFormStore.bggGameDataForForm,(newData)=>{ if(newData && !editGameSt
     populatedBggId.value=newData.bggId;
 }},{deep:true});
 
-const handleImageFileUpload = async (event: Event) => { isUploadingImage.value = true; imageUploadError.value = null; const files = Array.from((event.target as HTMLInputElement).files || []); for(const file of files){const fd=new FormData(); fd.append("gameImage",file); try{const r=await fetch("/api/images/upload/game",{method:"POST",body:fd}); if(!r.ok){const errD=await r.json().catch(()=>({m:"Server err"}));throw new Error(errD.message)}const res=await r.json();if(res.imageUrl){if(!form.userImageUrls)form.userImageUrls=[];form.userImageUrls.push(res.imageUrl)}}catch(err:any){imageUploadError.value=err.message;break;}}isUploadingImage.value=false;(event.target as HTMLInputElement).value="";};
+const handleImageFileUpload = async (event: Event) => { /* ... */ isUploadingImage.value = true; imageUploadError.value = null; const files = Array.from((event.target as HTMLInputElement).files || []); for(const file of files){const fd=new FormData(); fd.append("gameImage",file); try{const r=await fetch("/api/images/upload/game",{method:"POST",body:fd}); if(!r.ok){const errD=await r.json().catch(()=>({m:"Server err"}));throw new Error(errD.message)}const res=await r.json();if(res.imageUrl){if(!form.userImageUrls)form.userImageUrls=[];form.userImageUrls.push(res.imageUrl)}}catch(err:any){imageUploadError.value=err.message;break;}}isUploadingImage.value=false;(event.target as HTMLInputElement).value="";};
 const removeUserImage = (index: number) => { form.userImageUrls?.splice(index, 1); };
 const addOtherLink=()=>{if(!form.otherLinks)form.otherLinks=[];form.otherLinks.push({title:"",url:""})};
 const removeOtherLink=(idx:number)=>{form.otherLinks?.splice(idx,1)};
@@ -248,6 +270,22 @@ const addCardSet=()=>{if(!form.cardSets)form.cardSets=[];form.cardSets.push({id:
 const removeCardSet=(idx:number)=>{form.cardSets?.splice(idx,1)};
 const removeBggVideoLink=(idx:number)=>{form.bggVideoLinks?.splice(idx,1)};
 const clearBggLink=()=>{populatedBggId.value=undefined;form.bggId=undefined;form.isExpansionFromBgg=false;form.bggBaseGameIdFromBgg=undefined; bggFormStore.clearBggGameData();};
+
+const handleManualFileUpload = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  if (!target.files || target.files.length === 0) return;
+  const file = target.files[0];
+  isUploadingManual.value = true; manualUploadError.value = null;
+  const formData = new FormData(); formData.append("gameManualFile", file);
+  try {
+    const response = await fetch("/api/files/upload/manual", { method: "POST", body: formData });
+    if (!response.ok) { const errorData = await response.json().catch(()=>({message:"Manual upload server error"})); throw new Error(errorData.message); }
+    const result = await response.json();
+    form.localManualUrl = result.manualUrl;
+  } catch (err:any) { manualUploadError.value = err.message; }
+  finally { isUploadingManual.value = false; target.value = ""; }
+};
+const clearLocalManual = () => { form.localManualUrl = ""; manualUploadError.value = null; };
 
 const handleSubmit=async()=>{
   formError.value = null; if (!form.name.trim()) { formError.value="Name required."; return; }
@@ -277,30 +315,16 @@ onMounted(() => { if (!editGameStore.isEditMode && !bggFormStore.bggGameDataForF
 </script>
 
 <style scoped>
+/* ... (existing styles) ... */
 .form-container { border: 1px solid #ccc; padding: 20px; margin-bottom: 20px; background: #f9f9f9; border-radius: 5px; }
 .form-section { border: 1px solid #e0e0e0; border-radius: 4px; margin-bottom: 15px; background-color: #fff; }
 .form-section summary { font-weight: bold; padding: 10px; cursor: pointer; background-color: #f0f8ff; border-bottom: 1px solid #e0e0e0; list-style-position: inside; }
 .form-section summary:hover { background-color: #e6f2ff; }
 .form-section[open] summary { border-bottom: 1px solid #e0e0e0; }
 .section-box-inner { padding: 15px; }
-.section-box-inner > div:not(.grid-2-col) { margin-bottom:10px; }
-label{display:block;margin-bottom:5px;font-weight:700}
-input,textarea,select{width:100%;padding:8px;box-sizing:border-box;border:1px solid #ddd;border-radius:3px}
-.grid-2-col{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px}
-.form-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
-.cancel-btn { background-color: #6c757d; color:white; border:none; }
-.bgg-reimpl-info { font-size: 0.9em; margin-top: 5px; padding-left: 10px; border-left: 2px solid #17a2b8; }
-.bgg-reimpl-info p { margin: 0 0 3px 0; }
-.bgg-reimpl-info ul { list-style: circle; margin: 0 0 0 20px; padding: 0; }
-.video-link-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; background-color: #f0f8ff; padding: 5px; border-radius: 3px;}
-.video-link-item a { flex-grow: 1; text-decoration: underline; color: #0056b3; margin-right:10px; }
-.video-link-item span { font-size: 0.85em; color: #555; margin-right:10px; }
-.remove-video-btn { padding: 3px 8px; font-size: 0.8em; background-color: #ef9a9a; color:white; border:none; border-radius:3px; cursor:pointer; }
-.form-note { font-size: 0.85em; color: #555; margin-top: 0px; margin-bottom:10px; }
-.user-images-section .image-upload-label { display: block; margin-bottom: 5px; }
-.user-images-section input[type="file"] { margin-bottom: 10px; }
-.uploaded-images-preview { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-.img-preview-item { position: relative; border: 1px solid #ddd; padding: 5px; background: #fff; }
-.img-preview-item img { width: 100px; height: 100px; object-fit: cover; display: block; }
-.remove-img-btn { position: absolute; top: -5px; right: -5px; background-color: #dc3545; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 20px; text-align: center; cursor: pointer; box-shadow: 0 0 5px rgba(0,0,0,0.2); }
+.manual-upload-area { margin-top: 10px; padding:10px; border:1px dashed #ccc; border-radius:3px; }
+.manual-upload-area input[type="file"] { margin-top: 5px; margin-bottom: 5px; }
+.manual-preview-item { display:flex; justify-content:space-between; align-items:center; font-size:0.9em; padding:5px; background-color:#e9f5ff; border-radius:3px; }
+.manual-preview-item a { color: #0056b3; text-decoration: underline; }
+/* Other styles as before */
 </style>

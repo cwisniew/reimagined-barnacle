@@ -18,7 +18,10 @@ export interface BoardGame {
   officialWebsiteUrl?: string; otherLinks?: OtherLink[];
   crowdfundingPlatform?: string; crowdfundingUrl?: string; crowdfundingStatus?: string;
   bggSubdomains?: string[]; bggFamilies?: string[];
-  manualUrl?: string; cardSets?: CardSet[];
+  // manualUrl?: string; // OLD
+  onlineManualUrl?: string; // New name for external URL
+  localManualUrl?: string;  // New field for uploaded manual path/URL
   bggReimplementations?: BggReimplementation[];
-  bggVideoLinks?: BggVideoLink[]; // RE-ADDED for persistence
+  bggVideoLinks?: BggVideoLink[];
+  cardSets?: CardSet[];
 }

@@ -16,3 +16,7 @@ yarn-error.log*
 # User uploaded game images
 uploads/game-images/*
 !uploads/game-images/.gitkeep
+
+# User uploaded game manuals
+uploads/game-manuals/*
+!uploads/game-manuals/.gitkeep
