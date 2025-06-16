@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
-import BoardGameList from "../components/BoardGameList.vue"; // Adjusted path
+import BoardGameList from "../components/BoardGameList.vue";
 import GameDetailView from "../views/GameDetailView.vue";
+import DashboardView from "../views/DashboardView.vue"; // Import new Dashboard view
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -13,6 +14,11 @@ const routes: Array<RouteRecordRaw> = [
     name: "GameDetail",
     component: GameDetailView,
     props: true,
+  },
+  { // New Dashboard Route
+    path: "/dashboard",
+    name: "Dashboard",
+    component: DashboardView,
   },
 ];
 
