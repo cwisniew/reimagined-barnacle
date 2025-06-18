@@ -20,3 +20,8 @@ uploads/game-images/*
 # User uploaded game manuals
 uploads/game-manuals/*
 !uploads/game-manuals/.gitkeep
+
+# SQLite Database files
+data/boardgames.db
+data/boardgames.db-shm
+data/boardgames.db-wal
