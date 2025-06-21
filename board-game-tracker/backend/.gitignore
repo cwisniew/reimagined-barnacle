@@ -25,3 +25,7 @@ uploads/game-manuals/*
 data/boardgames.db
 data/boardgames.db-shm
 data/boardgames.db-wal
+
+# User uploaded game attachments
+uploads/game-attachments/*
+!uploads/game-attachments/.gitkeep

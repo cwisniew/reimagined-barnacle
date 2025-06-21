@@ -5,6 +5,17 @@ export interface PlayerInPlaySession { id:string; name:string; enjoyment?:number
 export interface BggVideoLink { title: string; url: string; language?: string; uploader?: string; postDate?: string; }
 export interface BggReimplementation { bggId: number; name: string; }
 
+// New: GameAttachment interface
+export interface GameAttachment {
+  id: string; // UUID generated on client when staging for upload/add to form
+  title: string;
+  fileUrl: string; // URL path returned by backend upload endpoint
+  originalName: string;
+  fileType?: string; // MIME type
+  uploadedAt: string; // ISO date string when added to game (can be different from file system timestamp)
+  notes?: string;
+}
+
 export interface BoardGame {
   id: string; name: string; description: string; version?: string;
   bggId?: number; status?: string;
@@ -18,10 +29,9 @@ export interface BoardGame {
   officialWebsiteUrl?: string; otherLinks?: OtherLink[];
   crowdfundingPlatform?: string; crowdfundingUrl?: string; crowdfundingStatus?: string;
   bggSubdomains?: string[]; bggFamilies?: string[];
-  // manualUrl?: string; // OLD field - will be removed after migration logic
-  onlineManualUrl?: string; // New name for external URL
-  localManualUrl?: string;  // New field for uploaded manual path/URL
+  onlineManualUrl?: string; localManualUrl?: string;
   bggReimplementations?: BggReimplementation[];
   bggVideoLinks?: BggVideoLink[];
   cardSets?: CardSet[];
+  attachments?: GameAttachment[]; // New field
 }
